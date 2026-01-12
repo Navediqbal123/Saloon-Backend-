@@ -1,14 +1,24 @@
 import supabase from "../config/supabase.js";
 
-export async function authMiddleware(req, res, next) {
-  const token = req.headers.authorization?.replace("Bearer ", "");
+export const authMiddleware = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
 
-  if (!token) return res.status(401).json({ error: "No token" });
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Token missing" });
+    }
 
-  const { data, error } = await supabase.auth.getUser(token);
+    const token = authHeader.replace("Bearer ", "");
 
-  if (error) return res.status(401).json({ error: "Invalid token" });
+    const { data, error } = await supabase.auth.getUser(token);
 
-  req.user = data.user;
-  next();
-}
+    if (error || !data.user) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    req.user = data.user; // 👈 lifetime standard
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: "Auth failed" });
+  }
+};
