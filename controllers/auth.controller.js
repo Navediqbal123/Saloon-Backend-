@@ -1,16 +1,25 @@
-import supabase from "../../config/supabase.js";
+import supabase from "../config/supabase.js"; // ✅ PATH FIXED
 
 export async function createProfile(req, res) {
-  const { role, name, phone } = req.body;
+  try {
+    const { role, name, phone } = req.body;
 
-  const { error } = await supabase.from("profiles").insert({
-    id: req.user.id,
-    role,
-    name,
-    phone
-  });
+    // user middleware se aa raha hai
+    const userId = req.user.id;
 
-  if (error) return res.status(400).json(error);
+    const { error } = await supabase.from("profiles").insert({
+      id: userId,        // auth.users ka same id
+      role,
+      name,
+      phone
+    });
 
-  res.json({ success: true });
+    if (error) {
+      return res.status(400).json(error);
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
 }
