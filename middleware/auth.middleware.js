@@ -10,13 +10,25 @@ export const authMiddleware = async (req, res, next) => {
 
     const token = authHeader.replace("Bearer ", "");
 
+    // ✅ 1. Verify user from Supabase Auth
     const { data, error } = await supabase.auth.getUser(token);
 
     if (error || !data.user) {
       return res.status(401).json({ error: "Invalid token" });
     }
 
-    req.user = data.user; // 👈 lifetime standard
+    // ✅ 2. Attach user
+    req.user = data.user;
+
+    // ✅ 3. OPTIONAL: barber_id auto attach (lifetime fix)
+    const { data: barber } = await supabase
+      .from("barbers")
+      .select("id")
+      .eq("user_id", data.user.id)
+      .single();
+
+    req.user.barber_id = barber ? barber.id : null;
+
     next();
   } catch (err) {
     return res.status(401).json({ error: "Auth failed" });
