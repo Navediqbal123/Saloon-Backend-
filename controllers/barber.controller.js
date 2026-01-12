@@ -1,36 +1,48 @@
-import supabase from "../../config/supabase.js";
+import supabase from "../config/supabase.js"; // ✅ PATH FIXED
 
 export async function registerBarber(req, res) {
-  const { shop_name, location } = req.body;
+  try {
+    const { shop_name, location } = req.body;
 
-  const { data, error } = await supabase
-    .from("barbers")
-    .insert({
-      user_id: req.user.id,
-      shop_name,
-      location,
-      status: "pending"   // ✅ default status
-    })
-    .select()
-    .single();
+    const { data, error } = await supabase
+      .from("barbers")
+      .insert({
+        user_id: req.user.id,   // auth middleware se
+        shop_name,
+        location,
+        status: "pending"       // default
+      })
+      .select()
+      .single();
 
-  if (error) return res.status(400).json(error);
+    if (error) {
+      return res.status(400).json(error);
+    }
 
-  res.json({
-    success: true,
-    barber_id: data.id   // ✅ IMPORTANT: services ke liye ye id use hogi
-  });
+    res.json({
+      success: true,
+      barber_id: data.id       // ✅ ISI ID SE services add hongi
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
 }
 
 export async function approveBarber(req, res) {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-  const { error } = await supabase
-    .from("barbers")
-    .update({ status: "approved" })
-    .eq("id", id);
+    const { error } = await supabase
+      .from("barbers")
+      .update({ status: "approved" })
+      .eq("id", id);
 
-  if (error) return res.status(400).json(error);
+    if (error) {
+      return res.status(400).json(error);
+    }
 
-  res.json({ approved: true });
+    res.json({ approved: true });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
 }
