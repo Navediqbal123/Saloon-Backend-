@@ -3,7 +3,7 @@ import supabase from "../config/supabase.js";
 export async function createProfile(req, res) {
   const { role, name, phone } = req.body;
 
-  const { error } = await supabase.from("users").insert({
+  const { error } = await supabase.from("profiles").insert({
     auth_id: req.user.id,
     role,
     name,
