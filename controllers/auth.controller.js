@@ -1,46 +1,42 @@
-import bcrypt from "bcryptjs";
-import supabase from "../config/supabase.js";
-import { generateToken } from "../config/jwt.js";
+import jwt from "jsonwebtoken";
+import { supabaseAdmin } from "../config/supabase.js";
 
-// SIGNUP
-export async function signup(req, res) {
+export const signup = async (req, res) => {
   const { email, password } = req.body;
 
-  const hash = await bcrypt.hash(password, 10);
-
-  const { data, error } = await supabase
-    .from("users")
-    .insert({ email, password: hash })
-    .select()
-    .single();
+  const { data, error } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true
+  });
 
   if (error) return res.status(400).json(error);
 
-  const token = generateToken({ id: data.id, email });
+  const token = jwt.sign(
+    { id: data.user.id, email: data.user.email },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
 
   res.json({ token });
-}
+};
 
-// LOGIN
-export async function login(req, res) {
+export const login = async (req, res) => {
   const { email, password } = req.body;
 
-  const { data, error } = await supabase
-    .from("users")
-    .select("*")
-    .eq("email", email)
-    .single();
+  const { data, error } =
+    await supabaseAdmin.auth.signInWithPassword({
+      email,
+      password
+    });
 
-  if (error || !data) {
-    return res.status(401).json({ error: "User not found" });
-  }
+  if (error) return res.status(401).json(error);
 
-  const match = await bcrypt.compare(password, data.password);
-  if (!match) {
-    return res.status(401).json({ error: "Wrong password" });
-  }
-
-  const token = generateToken({ id: data.id, email });
+  const token = jwt.sign(
+    { id: data.user.id, email: data.user.email },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
 
   res.json({ token });
-}
+};
