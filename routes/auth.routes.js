@@ -1,18 +1,15 @@
 import express from "express";
-import { createProfile } from "../controllers/auth.controller.js";
+import { signup, login } from "../controllers/auth.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-// ✅ PROFILE (protected)
-router.post("/create-profile", authMiddleware, createProfile);
+router.post("/signup", signup);
+router.post("/login", login);
 
-// ✅ TEMP TEST ROUTE (token check)
+// test
 router.get("/me", authMiddleware, (req, res) => {
-  res.json({
-    success: true,
-    user: req.user
-  });
+  res.json(req.user);
 });
 
 export default router;
