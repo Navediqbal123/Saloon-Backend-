@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import { supabaseAdmin } from "../config/supabase.js";
 
+/* ================= SIGNUP ================= */
 export const signup = async (req, res) => {
   const { email, password } = req.body;
 
@@ -21,6 +22,7 @@ export const signup = async (req, res) => {
   res.json({ token });
 };
 
+/* ================= LOGIN ================= */
 export const login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -39,4 +41,28 @@ export const login = async (req, res) => {
   );
 
   res.json({ token });
+};
+
+/* ================= CREATE PROFILE ================= */
+export const createProfile = async (req, res) => {
+  const { role, name, phone } = req.body;
+  const userId = req.user.id;
+
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .insert([
+      {
+        id: userId,
+        role,
+        name,
+        phone
+      }
+    ]);
+
+  if (error) return res.status(400).json(error);
+
+  res.json({
+    success: true,
+    message: "Profile created"
+  });
 };
