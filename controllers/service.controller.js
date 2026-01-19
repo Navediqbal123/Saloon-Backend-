@@ -2,9 +2,21 @@ import supabase from "../config/supabase.js";
 
 export async function addService(req, res) {
   try {
+    // 🔒 Auth check (VERY IMPORTANT)
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
     const { name, price, duration, home_service } = req.body;
 
-    // ✅ STEP 1: logged-in user ka barber record nikaalo
+    // 🧪 Basic validation
+    if (!name || !price || !duration) {
+      return res.status(400).json({
+        error: "name, price and duration are required"
+      });
+    }
+
+    // ✅ STEP 1: logged-in user ka APPROVED barber record nikaalo
     const { data: barber, error: barberError } = await supabase
       .from("barbers")
       .select("id")
@@ -13,22 +25,31 @@ export async function addService(req, res) {
       .single();
 
     if (barberError || !barber) {
-      return res.status(400).json({ error: "Barber not approved or not registered" });
+      return res.status(403).json({
+        error: "Barber not approved or not registered"
+      });
     }
 
     // ✅ STEP 2: service insert with REAL barber_id
-    const { error } = await supabase.from("services").insert({
-      barber_id: barber.id,
-      name,
-      price,
-      duration,
-      home_service
+    const { error } = await supabase
+      .from("services")
+      .insert({
+        barber_id: barber.id,   // REAL barber UUID
+        name,
+        price,
+        duration,
+        home_service: home_service || false
+      });
+
+    if (error) {
+      return res.status(400).json(error);
+    }
+
+    return res.json({
+      success: true,
+      message: "Service added successfully"
     });
-
-    if (error) return res.status(400).json(error);
-
-    res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: "Server error" });
+    return res.status(500).json({ error: "Server error" });
   }
 }
