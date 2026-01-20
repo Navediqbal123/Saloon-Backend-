@@ -1,27 +1,42 @@
 import express from "express";
-import { createBooking } from "../controllers/booking.controller.js";
+import {
+  createBooking,
+  getMyBookings,
+  getBarberBookings,
+  getAllBookings
+} from "../controllers/booking.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
 /**
- * ✅ USER → Create booking (login required)
+ * =========================
+ * USER → Create booking
+ * =========================
  */
 router.post("/create", authMiddleware, createBooking);
 
 /**
- * ✅ USER / BARBER / ADMIN
- * (future-safe: token valid ho to error nahi aayega)
+ * =========================
+ * USER → My bookings
+ * =========================
  */
-router.get("/my", authMiddleware, (req, res) => {
-  res.json({ message: "My bookings route connected" });
-});
+router.get("/my", authMiddleware, getMyBookings);
 
 /**
- * ✅ ADMIN → View all bookings (later use)
+ * =========================
+ * BARBER → My received bookings
+ * (jitni booking us barber ke paas aayi)
+ * =========================
  */
-router.get("/all", authMiddleware, (req, res) => {
-  res.json({ message: "Admin bookings route connected" });
-});
+router.get("/barber", authMiddleware, getBarberBookings);
+
+/**
+ * =========================
+ * ADMIN → All bookings
+ * (sab users + sab barbers)
+ * =========================
+ */
+router.get("/all", authMiddleware, getAllBookings);
 
 export default router;
