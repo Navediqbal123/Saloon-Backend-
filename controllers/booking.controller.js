@@ -77,3 +77,28 @@ export async function getMyBookings(req, res) {
     return res.status(500).json({ error: "Server error" });
   }
 }
+
+// =======================
+// ADMIN – All bookings
+// =======================
+export async function getAllBookings(req, res) {
+  try {
+    // 🔒 Auth check
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { data, error } = await supabase
+      .from("bookings")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      return res.status(400).json(error);
+    }
+
+    return res.json(data);
+  } catch (err) {
+    return res.status(500).json({ error: "Server error" });
+  }
+          }
