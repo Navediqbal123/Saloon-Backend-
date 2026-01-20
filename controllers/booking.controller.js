@@ -1,8 +1,11 @@
 import supabase from "../config/supabase.js";
 
+// =======================
+// CREATE BOOKING (USER / ADMIN)
+// =======================
 export async function createBooking(req, res) {
   try {
-    // 🔒 Auth check (ADMIN + USER dono ke liye)
+    // 🔒 Auth check
     if (!req.user || !req.user.id) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -25,7 +28,7 @@ export async function createBooking(req, res) {
     const booking = {
       barber_id,                 // barbers.id (UUID)
       service_id,                // services.id (UUID)
-      customer_id: req.user.id,  // auth user id
+      customer_id: req.user.id,  // logged-in user
       date,
       time_slot,
       home_service: home_service || false,
@@ -44,6 +47,32 @@ export async function createBooking(req, res) {
       success: true,
       message: "Booking created successfully"
     });
+  } catch (err) {
+    return res.status(500).json({ error: "Server error" });
+  }
+}
+
+// =======================
+// GET MY BOOKINGS (USER)
+// =======================
+export async function getMyBookings(req, res) {
+  try {
+    // 🔒 Auth check
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { data, error } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("customer_id", req.user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      return res.status(400).json(error);
+    }
+
+    return res.json(data);
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
