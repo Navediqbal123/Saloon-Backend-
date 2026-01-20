@@ -79,6 +79,45 @@ export async function getMyBookings(req, res) {
 }
 
 // =======================
+// BARBER – My received bookings
+// =======================
+export async function getBarberBookings(req, res) {
+  try {
+    // 🔒 Auth check
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    // barber ka record nikaalo
+    const { data: barber, error: barberError } = await supabase
+      .from("barbers")
+      .select("id")
+      .eq("user_id", req.user.id)
+      .eq("status", "approved")
+      .single();
+
+    if (barberError || !barber) {
+      return res.status(403).json({ error: "Not an approved barber" });
+    }
+
+    // us barber ki saari bookings
+    const { data, error } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("barber_id", barber.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      return res.status(400).json(error);
+    }
+
+    return res.json(data);
+  } catch (err) {
+    return res.status(500).json({ error: "Server error" });
+  }
+}
+
+// =======================
 // ADMIN – All bookings
 // =======================
 export async function getAllBookings(req, res) {
@@ -101,4 +140,4 @@ export async function getAllBookings(req, res) {
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
-          }
+}
