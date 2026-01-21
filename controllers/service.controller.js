@@ -122,3 +122,26 @@ export async function getMyServices(req, res) {
     return res.status(500).json({ error: "Server error" });
   }
 }
+
+// =======================
+// UPDATE SERVICE (BARBER / ADMIN)
+// =======================
+export async function updateService(req, res) {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const { error } = await supabase
+      .from("services")
+      .update(updates)
+      .eq("id", id);
+
+    if (error) {
+      return res.status(400).json(error);
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: "Server error" });
+  }
+}
