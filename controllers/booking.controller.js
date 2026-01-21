@@ -141,3 +141,23 @@ export async function getAllBookings(req, res) {
     return res.status(500).json({ error: "Server error" });
   }
 }
+
+// =======================
+// CANCEL BOOKING
+// =======================
+export async function cancelBooking(req, res) {
+  try {
+    const { id } = req.params;
+
+    const { error } = await supabase
+      .from("bookings")
+      .update({ status: "cancelled" })
+      .eq("id", id);
+
+    if (error) return res.status(400).json(error);
+
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
+}
