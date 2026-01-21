@@ -9,7 +9,8 @@ import {
 import {
   addService,
   getServicesByBarber,
-  getMyServices
+  getMyServices,
+  updateService          // ✅ ADD THIS
 } from "../controllers/service.controller.js";
 
 import { authMiddleware } from "../middleware/auth.middleware.js";
@@ -26,7 +27,6 @@ router.post("/register", authMiddleware, registerBarber);
 /**
  * =========================
  * ADMIN → Pending barber requests
- * (Admin panel me show honge)
  * =========================
  */
 router.get("/pending", authMiddleware, getPendingBarbers);
@@ -34,7 +34,6 @@ router.get("/pending", authMiddleware, getPendingBarbers);
 /**
  * =========================
  * USERS → Approved barbers list
- * (Booking page ke liye)
  * =========================
  */
 router.get("/approved", authMiddleware, getApprovedBarbers);
@@ -55,8 +54,14 @@ router.post("/add-service", authMiddleware, addService);
 
 /**
  * =========================
+ * BARBER → Update service
+ * =========================
+ */
+router.patch("/service/:id", authMiddleware, updateService);
+
+/**
+ * =========================
  * USERS → Services of a barber
- * (Booking page)
  * =========================
  */
 router.get("/services/:barber_id", authMiddleware, getServicesByBarber);
@@ -64,7 +69,6 @@ router.get("/services/:barber_id", authMiddleware, getServicesByBarber);
 /**
  * =========================
  * BARBER → My services
- * (Barber dashboard)
  * =========================
  */
 router.get("/my-services", authMiddleware, getMyServices);
