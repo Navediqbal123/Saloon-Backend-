@@ -12,10 +12,11 @@ dotenv.config();
 
 const app = express();
 
-// ✅ CORS Configuration Update
+// ✅ CORS Configuration Updated (Added allowedHeaders for Frontend)
 app.use(cors({
   origin: "*", 
   methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"], 
   credentials: true
 }));
 
