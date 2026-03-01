@@ -12,24 +12,25 @@ export const signup = async (req, res) => {
 
   if (error) return res.status(400).json(error);
 
-  // 2. Role validate karo (Constraint error se bachne ke liye)
-  const validRoles = ["user", "barber", "admin"];
-  const finalRole = validRoles.includes(role) ? role : "user";
+  // 2. Sirf wahi role bhejo jo database allow karta hai ('user', 'barber', ya 'admin')
+  // Agar koi faltu role bheja, toh default 'user' set ho jayega.
+  const allowedRoles = ["user", "barber", "admin"];
+  const finalRole = allowedRoles.includes(role) ? role : "user";
 
-  // 3. Profile insert karo
+  // 3. Profile Create karo
   const { error: profileError } = await supabaseAdmin
     .from("profiles")
     .insert({
       id: data.user.id,
       name: name,
-      phone: phone || null,
-      role: finalRole
+      phone: phone || "",
+      role: finalRole // Yahan ab kabhi error nahi aayega
     });
 
   if (profileError) {
-    // Agar profile fail hui toh auth user delete kar do
+    // Agar profile nahi bani, toh user ko delete karo (cleanup)
     await supabaseAdmin.auth.admin.deleteUser(data.user.id);
-    return res.status(400).json(profileError);
+    return res.status(400).json({ error: "Profile creation failed", details: profileError });
   }
 
   res.json({ message: "Success", userId: data.user.id });
@@ -39,5 +40,5 @@ export const login = async (req, res) => {
   const { email, password } = req.body;
   const { data, error } = await supabaseAdmin.auth.signInWithPassword({ email, password });
   if (error) return res.status(401).json(error);
-  res.json({ userId: data.user.id, user: data.user });
+  res.json({ userId: data.user.id });
 };
