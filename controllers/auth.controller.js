@@ -1,68 +1,26 @@
-import jwt from "jsonwebtoken";
-import { supabaseAdmin } from "../config/supabase.js";
-
-/* ================= SIGNUP ================= */
 export const signup = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, name, role } = req.body; 
 
+  // 1. User Create karo
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
-    email_confirm: true
+    user_metadata: { name }
   });
 
   if (error) return res.status(400).json(error);
 
-  const token = jwt.sign(
-    { id: data.user.id, email: data.user.email },
-    process.env.JWT_SECRET,
-    { expiresIn: "7d" }
-  );
-
-  res.json({ token });
-};
-
-/* ================= LOGIN ================= */
-export const login = async (req, res) => {
-  const { email, password } = req.body;
-
-  const { data, error } =
-    await supabaseAdmin.auth.signInWithPassword({
-      email,
-      password
+  // 2. Profile Create karo (Admin/User dono ke liye)
+  const { error: profileError } = await supabaseAdmin
+    .from("profiles")
+    .insert({
+      id: data.user.id,
+      name: name,
+      email: email,
+      role: role || "user" // Agar role nahi aaya toh by-default 'user'
     });
 
-  if (error) return res.status(401).json(error);
+  if (profileError) return res.status(400).json(profileError);
 
-  const token = jwt.sign(
-    { id: data.user.id, email: data.user.email },
-    process.env.JWT_SECRET,
-    { expiresIn: "7d" }
-  );
-
-  res.json({ token });
-};
-
-/* ================= CREATE PROFILE ================= */
-export const createProfile = async (req, res) => {
-  const { role, name, phone } = req.body;
-  const userId = req.user.id;
-
-  const { data, error } = await supabaseAdmin
-    .from("profiles")
-    .insert([
-      {
-        id: userId,
-        role,
-        name,
-        phone
-      }
-    ]);
-
-  if (error) return res.status(400).json(error);
-
-  res.json({
-    success: true,
-    message: "Profile created"
-  });
+  res.json({ message: "Success", userId: data.user.id });
 };
