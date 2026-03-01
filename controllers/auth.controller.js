@@ -1,6 +1,5 @@
 import { supabaseAdmin } from "../config/supabase.js";
 
-// Signup aur Profile creation ek saath
 export const signup = async (req, res) => {
   const { email, password, name, phone, role } = req.body;
 
@@ -13,22 +12,22 @@ export const signup = async (req, res) => {
 
   if (error) return res.status(400).json(error);
 
-  // 2. Profile Create karo (Role validation ke saath)
-  // Constraint error se bachne ke liye allowed roles define kiye hain
-  const allowedRoles = ["user", "barber", "admin"];
-  const finalRole = allowedRoles.includes(role) ? role : "user";
+  // 2. Role validate karo (Constraint error se bachne ke liye)
+  const validRoles = ["user", "barber", "admin"];
+  const finalRole = validRoles.includes(role) ? role : "user";
 
+  // 3. Profile insert karo
   const { error: profileError } = await supabaseAdmin
     .from("profiles")
     .insert({
       id: data.user.id,
       name: name,
-      phone: phone || "",
+      phone: phone || null,
       role: finalRole
     });
 
   if (profileError) {
-    // Agar profile nahi bani, toh user delete kar do (Cleanup)
+    // Agar profile fail hui toh auth user delete kar do
     await supabaseAdmin.auth.admin.deleteUser(data.user.id);
     return res.status(400).json(profileError);
   }
@@ -36,7 +35,6 @@ export const signup = async (req, res) => {
   res.json({ message: "Success", userId: data.user.id });
 };
 
-// Login function
 export const login = async (req, res) => {
   const { email, password } = req.body;
   const { data, error } = await supabaseAdmin.auth.signInWithPassword({ email, password });
