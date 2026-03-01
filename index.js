@@ -5,14 +5,20 @@ import dotenv from "dotenv";
 import authRoutes from "./routes/auth.routes.js";
 import barberRoutes from "./routes/barber.routes.js";
 import bookingRoutes from "./routes/booking.routes.js";
-import serviceRoutes from "./routes/service.routes.js"; // ✅ services
-import adminRoutes from "./routes/admin.routes.js";     // ✅ admin
+import serviceRoutes from "./routes/service.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 
 dotenv.config();
 
 const app = express();
 
-app.use(cors());
+// ✅ CORS Configuration Update
+app.use(cors({
+  origin: "*", 
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
+
 app.use(express.json());
 
 // =========================
@@ -22,7 +28,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/barber", barberRoutes);
 app.use("/api/booking", bookingRoutes);
 app.use("/api/services", serviceRoutes);
-app.use("/api/admin", adminRoutes);   // ✅ ADD HERE
+app.use("/api/admin", adminRoutes);
 
 // =========================
 // HEALTH CHECK
