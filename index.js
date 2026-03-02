@@ -12,12 +12,12 @@ dotenv.config();
 
 const app = express();
 
-// ✅ CORS Configuration Updated (Added allowedHeaders for Frontend)
+// 🔥 FIXED CORS — COOKIE AUTH KE LIYE
 app.use(cors({
-  origin: "*", 
+  origin: true,          // allow requesting domain dynamically
+  credentials: true,     // allow cookies
   methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"], 
-  credentials: true
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
 app.use(express.json());
