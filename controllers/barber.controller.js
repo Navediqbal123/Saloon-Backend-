@@ -8,7 +8,7 @@ export async function registerBarber(req, res) {
       user_id: req.user.id,
       shop_name,
       location,
-      status: "pending"
+      status: "approved" // <--- Sirf yahan "pending" ki jagah "approved" kiya hai
     }).select().single();
     if (error) return res.status(400).json(error);
     res.json({ success: true, data });
