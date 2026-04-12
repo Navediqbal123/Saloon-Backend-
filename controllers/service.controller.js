@@ -1,7 +1,7 @@
 import supabase from "../config/supabase.js";
 
 // =======================
-// ADD SERVICE (APPROVED BARBER)
+// 1. ADD SERVICE (APPROVED BARBER)
 // =======================
 export async function addService(req, res) {
   try {
@@ -19,7 +19,7 @@ export async function addService(req, res) {
       });
     }
 
-    // ✅ STEP 1: approved barber record nikaalo
+    // ✅ STEP 1: Approved barber record nikaalo
     const { data: barber, error: barberError } = await supabase
       .from("barbers")
       .select("id")
@@ -33,7 +33,7 @@ export async function addService(req, res) {
       });
     }
 
-    // ✅ STEP 2: service insert
+    // ✅ STEP 2: Service insert
     const { error } = await supabase
       .from("services")
       .insert({
@@ -58,7 +58,7 @@ export async function addService(req, res) {
 }
 
 // =======================
-// GET SERVICES BY BARBER (BOOKING PAGE)
+// 2. GET SERVICES BY BARBER (BOOKING PAGE)
 // =======================
 export async function getServicesByBarber(req, res) {
   try {
@@ -84,7 +84,7 @@ export async function getServicesByBarber(req, res) {
 }
 
 // =======================
-// GET MY SERVICES (LOGGED-IN APPROVED BARBER)
+// 3. GET MY SERVICES (LOGGED-IN APPROVED BARBER)
 // =======================
 export async function getMyServices(req, res) {
   try {
@@ -93,7 +93,7 @@ export async function getMyServices(req, res) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // ✅ STEP 1: approved barber record nikaalo
+    // ✅ STEP 1: Approved barber record nikaalo
     const { data: barber, error: barberError } = await supabase
       .from("barbers")
       .select("id")
@@ -107,7 +107,7 @@ export async function getMyServices(req, res) {
       });
     }
 
-    // ✅ STEP 2: barber ki services lao
+    // ✅ STEP 2: Barber ki services lao
     const { data, error } = await supabase
       .from("services")
       .select("*")
@@ -124,7 +124,7 @@ export async function getMyServices(req, res) {
 }
 
 // =======================
-// UPDATE SERVICE (BARBER / ADMIN)
+// 4. UPDATE SERVICE (BARBER / ADMIN)
 // =======================
 export async function updateService(req, res) {
   try {
@@ -145,3 +145,8 @@ export async function updateService(req, res) {
     return res.status(500).json({ error: "Server error" });
   }
 }
+
+// ==========================================
+// 🚀 EXPORT ALIAS (Isse routes wali 404 error khatam hogi)
+// ==========================================
+export const getServices = getMyServices;
