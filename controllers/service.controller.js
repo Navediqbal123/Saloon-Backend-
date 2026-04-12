@@ -19,17 +19,16 @@ export async function addService(req, res) {
       });
     }
 
-    // ✅ STEP 1: Approved barber record nikaalo
+    // ✅ STEP 1: Barber record nikaalo (Status check hata diya hai)
     const { data: barber, error: barberError } = await supabase
       .from("barbers")
       .select("id")
       .eq("user_id", req.user.id)
-      .eq("status", "approved")
       .single();
 
     if (barberError || !barber) {
       return res.status(403).json({
-        error: "Barber not approved or not registered"
+        error: "Barber profile not found"
       });
     }
 
@@ -84,7 +83,7 @@ export async function getServicesByBarber(req, res) {
 }
 
 // =======================
-// 3. GET MY SERVICES (LOGGED-IN APPROVED BARBER)
+// 3. GET MY SERVICES (LOGGED-IN BARBER)
 // =======================
 export async function getMyServices(req, res) {
   try {
@@ -93,17 +92,16 @@ export async function getMyServices(req, res) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // ✅ STEP 1: Approved barber record nikaalo
+    // ✅ STEP 1: Barber record nikaalo (Status check hata diya hai)
     const { data: barber, error: barberError } = await supabase
       .from("barbers")
       .select("id")
       .eq("user_id", req.user.id)
-      .eq("status", "approved")
       .single();
 
     if (barberError || !barber) {
       return res.status(403).json({
-        error: "Barber not approved or not registered"
+        error: "Barber profile not found"
       });
     }
 
@@ -150,3 +148,4 @@ export async function updateService(req, res) {
 // 🚀 EXPORT ALIAS (Isse routes wali 404 error khatam hogi)
 // ==========================================
 export const getServices = getMyServices;
+        
