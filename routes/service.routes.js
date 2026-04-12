@@ -1,9 +1,11 @@
 import express from "express";
-import { getServicesByBarber } from "../controllers/service.controller.js";
+import { getServices, addService } from "../controllers/service.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.get("/:barber_id", authMiddleware, getServicesByBarber);
+// Purane ki zarurat nahi, ye sab handle kar lega
+router.get("/", authMiddleware, getServices);
+router.post("/", authMiddleware, addService);
 
 export default router;
