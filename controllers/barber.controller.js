@@ -4,12 +4,17 @@ import supabase from "../config/supabase.js";
 export async function registerBarber(req, res) {
   try {
     const { shop_name, location } = req.body;
-    const { data, error } = await supabase.from("barbers").insert({
-      user_id: req.user.id,
-      shop_name,
-      location,
-      status: "approved"
-    }).select().single();
+    const { data, error } = await supabase
+      .from("barbers")
+      .insert({
+        user_id: req.user.id,
+        shop_name: shop_name || "My Salon",
+        location: location || "Not set",
+        status: "approved"
+      })
+      .select()
+      .single();
+
     if (error) return res.status(400).json(error);
     res.json({ success: true, data });
   } catch (err) { res.status(500).json({ error: "Server error" }); }
