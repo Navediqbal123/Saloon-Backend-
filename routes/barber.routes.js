@@ -3,14 +3,15 @@ import {
   registerBarber,
   approveBarber,
   getPendingBarbers,
-  getApprovedBarbers
+  getApprovedBarbers,
+  getMyBarberProfile
 } from "../controllers/barber.controller.js";
 
 import {
   addService,
   getServicesByBarber,
   getMyServices,
-  updateService          // ✅ ADD THIS
+  updateService
 } from "../controllers/service.controller.js";
 
 import { authMiddleware } from "../middleware/auth.middleware.js";
@@ -44,6 +45,13 @@ router.get("/approved", authMiddleware, getApprovedBarbers);
  * =========================
  */
 router.post("/approve/:id", authMiddleware, approveBarber);
+
+/**
+ * =========================
+ * BARBER → My profile
+ * =========================
+ */
+router.get("/me", authMiddleware, getMyBarberProfile);
 
 /**
  * =========================
