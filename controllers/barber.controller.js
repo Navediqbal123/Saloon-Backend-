@@ -10,7 +10,7 @@ export async function registerBarber(req, res) {
         user_id: req.user.id,
         shop_name: shop_name || "My Salon",
         location: location || "Not set",
-        status: "approved"
+        status: "pending"
       })
       .select()
       .single();
