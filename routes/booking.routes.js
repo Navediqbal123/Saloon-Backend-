@@ -4,7 +4,8 @@ import {
   getMyBookings,
   getBarberBookings,
   getAllBookings,
-  cancelBooking          // ✅ ADD HERE
+  cancelBooking,
+  checkSlotAvailability  // ✅ ADD HERE
 } from "../controllers/booking.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
@@ -34,5 +35,10 @@ router.get("/all", authMiddleware, getAllBookings);
 // USER / BARBER / ADMIN → Cancel booking
 // =========================
 router.patch("/cancel/:id", authMiddleware, cancelBooking);
+
+// =========================
+// CHECK → Slot availability
+// =========================
+router.get("/check-slot", authMiddleware, checkSlotAvailability);
 
 export default router;
