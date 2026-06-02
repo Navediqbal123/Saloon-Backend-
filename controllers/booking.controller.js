@@ -161,3 +161,38 @@ export async function cancelBooking(req, res) {
     res.status(500).json({ error: "Server error" });
   }
 }
+
+// =======================
+// CHECK SLOT AVAILABILITY
+// =======================
+export async function checkSlotAvailability(req, res) {
+  try {
+    const { barber_id, date, time_slot } = req.query;
+
+    if (!barber_id || !date || !time_slot) {
+      return res.status(400).json({
+        error: "barber_id, date and time_slot are required"
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("bookings")
+      .select("id")
+      .eq("barber_id", barber_id)
+      .eq("date", date)
+      .eq("time_slot", time_slot)
+      .neq("status", "cancelled")
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      return res.status(400).json(error);
+    }
+
+    return res.json({
+      available: !data,
+      message: data ? "Slot already booked" : "Slot is available"
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "Server error" });
+  }
+      }
