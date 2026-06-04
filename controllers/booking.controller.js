@@ -26,9 +26,9 @@ export async function createBooking(req, res) {
     }
 
     const booking = {
-      barber_id,                 // barbers.id (UUID)
-      service_id,                // services.id (UUID)
-      customer_id: req.user.id,  // logged-in user
+      barber_id,
+      service_id,
+      customer_id: req.user.id,
       date,
       time_slot,
       home_service: home_service || false,
@@ -41,6 +41,20 @@ export async function createBooking(req, res) {
 
     if (error) {
       return res.status(400).json(error);
+    }
+
+    // 🔔 Barber ko notification bhejo
+    const { data: barber } = await supabase
+      .from("barbers")
+      .select("user_id")
+      .eq("id", barber_id)
+      .single();
+
+    if (barber) {
+      await supabase.from("notifications").insert({
+        user_id: barber.user_id,
+        message: "Nai booking aayi hai! Check karein.",
+      });
     }
 
     return res.json({
@@ -213,6 +227,18 @@ export async function updateBookingStatus(req, res) {
       return res.status(400).json({ error: "Invalid status" });
     }
 
+    // Pehle booking nikaalo customer_id ke liye
+    const { data: booking, error: bookingError } = await supabase
+      .from("bookings")
+      .select("customer_id")
+      .eq("id", id)
+      .single();
+
+    if (bookingError || !booking) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    // Status update karo
     const { error } = await supabase
       .from("bookings")
       .update({ status })
@@ -220,8 +246,62 @@ export async function updateBookingStatus(req, res) {
 
     if (error) return res.status(400).json(error);
 
+    // 🔔 Customer ko notification bhejo
+    await supabase.from("notifications").insert({
+      user_id: booking.customer_id,
+      message: status === "approved"
+        ? "Aapki booking approve ho gayi! ✅"
+        : "Aapki booking reject ho gayi. ❌",
+    });
+
     return res.json({ success: true, message: `Booking ${status}` });
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
 }
+
+// =======================
+// GET NOTIFICATIONS
+// =======================
+export async function getNotifications(req, res) {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", req.user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) return res.status(400).json(error);
+
+    return res.json(data);
+  } catch (err) {
+    return res.status(500).json({ error: "Server error" });
+  }
+}
+
+// =======================
+// MARK NOTIFICATIONS READ
+// =======================
+export async function markNotificationsRead(req, res) {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", req.user.id)
+      .eq("is_read", false);
+
+    if (error) return res.status(400).json(error);
+
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: "Server error" });
+  }
+    }
