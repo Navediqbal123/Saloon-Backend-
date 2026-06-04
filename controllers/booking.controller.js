@@ -195,4 +195,33 @@ export async function checkSlotAvailability(req, res) {
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
-      }
+}
+
+// =======================
+// UPDATE BOOKING STATUS (BARBER)
+// =======================
+export async function updateBookingStatus(req, res) {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!["approved", "rejected"].includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    const { error } = await supabase
+      .from("bookings")
+      .update({ status })
+      .eq("id", id);
+
+    if (error) return res.status(400).json(error);
+
+    return res.json({ success: true, message: `Booking ${status}` });
+  } catch (err) {
+    return res.status(500).json({ error: "Server error" });
+  }
+}
