@@ -6,7 +6,9 @@ import {
   getAllBookings,
   cancelBooking,
   checkSlotAvailability,
-  updateBookingStatus  // ✅ ADD HERE
+  updateBookingStatus,
+  getNotifications,        // ✅ ADD HERE
+  markNotificationsRead    // ✅ ADD HERE
 } from "../controllers/booking.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
@@ -46,5 +48,15 @@ router.get("/check-slot", authMiddleware, checkSlotAvailability);
 // BARBER → Accept/Reject booking
 // =========================
 router.patch("/status/:id", authMiddleware, updateBookingStatus);
+
+// =========================
+// GET → Notifications
+// =========================
+router.get("/notifications", authMiddleware, getNotifications);
+
+// =========================
+// PATCH → Mark notifications read
+// =========================
+router.patch("/notifications/read", authMiddleware, markNotificationsRead);
 
 export default router;
