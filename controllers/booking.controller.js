@@ -5,7 +5,6 @@ import supabase from "../config/supabase.js";
 // =======================
 export async function createBooking(req, res) {
   try {
-    // 🔒 Auth check
     if (!req.user || !req.user.id) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -18,7 +17,6 @@ export async function createBooking(req, res) {
       home_service
     } = req.body;
 
-    // 🧪 Basic validation
     if (!barber_id || !service_id || !date || !time_slot) {
       return res.status(400).json({
         error: "barber_id, service_id, date and time_slot are required"
@@ -71,7 +69,6 @@ export async function createBooking(req, res) {
 // =======================
 export async function getMyBookings(req, res) {
   try {
-    // 🔒 Auth check
     if (!req.user || !req.user.id) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -97,12 +94,10 @@ export async function getMyBookings(req, res) {
 // =======================
 export async function getBarberBookings(req, res) {
   try {
-    // 🔒 Auth check
     if (!req.user || !req.user.id) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // barber ka record nikaalo
     const { data: barber, error: barberError } = await supabase
       .from("barbers")
       .select("id")
@@ -114,7 +109,6 @@ export async function getBarberBookings(req, res) {
       return res.status(403).json({ error: "Not an approved barber" });
     }
 
-    // us barber ki saari bookings
     const { data, error } = await supabase
       .from("bookings")
       .select("*")
@@ -136,7 +130,6 @@ export async function getBarberBookings(req, res) {
 // =======================
 export async function getAllBookings(req, res) {
   try {
-    // 🔒 Auth check
     if (!req.user || !req.user.id) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -227,7 +220,6 @@ export async function updateBookingStatus(req, res) {
       return res.status(400).json({ error: "Invalid status" });
     }
 
-    // Pehle booking nikaalo customer_id ke liye
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .select("customer_id")
@@ -238,10 +230,15 @@ export async function updateBookingStatus(req, res) {
       return res.status(404).json({ error: "Booking not found" });
     }
 
-    // Status update karo
+    // ✅ OTP generate karo agar approved
+    let otp = null;
+    if (status === "approved") {
+      otp = Math.floor(100000 + Math.random() * 900000).toString();
+    }
+
     const { error } = await supabase
       .from("bookings")
-      .update({ status })
+      .update({ status, ...(otp && { otp }) })
       .eq("id", id);
 
     if (error) return res.status(400).json(error);
@@ -250,11 +247,60 @@ export async function updateBookingStatus(req, res) {
     await supabase.from("notifications").insert({
       user_id: booking.customer_id,
       message: status === "approved"
-        ? "Aapki booking approve ho gayi! ✅"
-        : "Aapki booking reject ho gayi. ❌",
+        ? `Your booking is confirmed! 🎉 Your OTP is: ${otp} — Please show this OTP to your barber when you arrive for your service.`
+        : "Your booking has been declined. ❌ Please try booking another slot.",
     });
 
     return res.json({ success: true, message: `Booking ${status}` });
+  } catch (err) {
+    return res.status(500).json({ error: "Server error" });
+  }
+}
+
+// =======================
+// VERIFY OTP (BARBER)
+// =======================
+export async function verifyOtp(req, res) {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { booking_id, otp } = req.body;
+
+    if (!booking_id || !otp) {
+      return res.status(400).json({ error: "booking_id and otp are required" });
+    }
+
+    const { data: booking, error: bookingError } = await supabase
+      .from("bookings")
+      .select("otp, status, customer_id")
+      .eq("id", booking_id)
+      .single();
+
+    if (bookingError || !booking) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    if (booking.otp !== otp) {
+      return res.status(400).json({ error: "Invalid OTP" });
+    }
+
+    // ✅ OTP match — service complete karo
+    const { error } = await supabase
+      .from("bookings")
+      .update({ status: "completed", otp_verified: true })
+      .eq("id", booking_id);
+
+    if (error) return res.status(400).json(error);
+
+    // 🔔 Customer ko completion notification
+    await supabase.from("notifications").insert({
+      user_id: booking.customer_id,
+      message: "Your service has been completed successfully! ✅ Thank you for choosing us.",
+    });
+
+    return res.json({ success: true, message: "Service completed successfully" });
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
@@ -304,4 +350,4 @@ export async function markNotificationsRead(req, res) {
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
-    }
+  }
