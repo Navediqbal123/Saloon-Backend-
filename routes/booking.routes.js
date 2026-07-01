@@ -7,8 +7,9 @@ import {
   cancelBooking,
   checkSlotAvailability,
   updateBookingStatus,
-  getNotifications,        // ✅ ADD HERE
-  markNotificationsRead    // ✅ ADD HERE
+  getNotifications,
+  markNotificationsRead,
+  verifyOtp              // ✅ ADD HERE
 } from "../controllers/booking.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
@@ -58,5 +59,10 @@ router.get("/notifications", authMiddleware, getNotifications);
 // PATCH → Mark notifications read
 // =========================
 router.patch("/notifications/read", authMiddleware, markNotificationsRead);
+
+// =========================
+// BARBER → Verify OTP
+// =========================
+router.post("/verify-otp", authMiddleware, verifyOtp);
 
 export default router;
