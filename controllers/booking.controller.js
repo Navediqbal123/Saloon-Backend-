@@ -75,7 +75,7 @@ export async function getMyBookings(req, res) {
 
     const { data, error } = await supabase
       .from("bookings")
-      .select("*")
+      .select("*, services(name, price, duration)")
       .eq("customer_id", req.user.id)
       .order("created_at", { ascending: false });
 
@@ -111,7 +111,7 @@ export async function getBarberBookings(req, res) {
 
     const { data, error } = await supabase
       .from("bookings")
-      .select("*")
+      .select("*, services(name, price, duration)")
       .eq("barber_id", barber.id)
       .order("created_at", { ascending: false });
 
@@ -136,7 +136,7 @@ export async function getAllBookings(req, res) {
 
     const { data, error } = await supabase
       .from("bookings")
-      .select("*")
+      .select("*, services(name, price, duration)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -189,6 +189,7 @@ export async function checkSlotAvailability(req, res) {
       .eq("date", date)
       .eq("time_slot", time_slot)
       .neq("status", "cancelled")
+      .neq("status", "completed")
       .single();
 
     if (error && error.code !== "PGRST116") {
@@ -350,4 +351,4 @@ export async function markNotificationsRead(req, res) {
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
-  }
+           }
