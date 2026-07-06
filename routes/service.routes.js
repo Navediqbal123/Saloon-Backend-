@@ -4,8 +4,10 @@ import { authMiddleware } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-// Purane ki zarurat nahi, ye sab handle kar lega
-router.get("/", authMiddleware, getServices);
+// ✅ GET — no auth, sabhi dekh sakte hain
+router.get("/", getServices);
+
+// ✅ POST — auth required
 router.post("/", authMiddleware, addService);
 
 export default router;
