@@ -144,8 +144,20 @@ export async function updateService(req, res) {
   }
 }
 
-// ==========================================
-// 🚀 EXPORT ALIAS (Isse routes wali 404 error khatam hogi)
-// ==========================================
-export const getServices = getMyServices;
-        
+// =======================
+// 5. GET ALL SERVICES (SABHI USERS KE LIYE)
+// =======================
+export async function getServices(req, res) {
+  try {
+    const { data, error } = await supabase
+      .from("services")
+      .select("*, barbers(id, shop_name, user_id)")
+      .order("created_at", { ascending: false });
+
+    if (error) return res.status(400).json(error);
+
+    return res.json(data);
+  } catch (err) {
+    return res.status(500).json({ error: "Server error" });
+  }
+      }
