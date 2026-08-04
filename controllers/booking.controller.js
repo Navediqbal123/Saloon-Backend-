@@ -11,31 +11,38 @@ export async function createBooking(req, res) {
 
     const {
       barber_id,
+      service_ids,
       service_id,
       date,
       time_slot,
-      home_service
+      home_service,
+      total_amount
     } = req.body;
 
-    if (!barber_id || !service_id || !date || !time_slot) {
+    // Support both single and multiple services
+    const services = service_ids || (service_id ? [service_id] : []);
+
+    if (!barber_id || !services.length || !date || !time_slot) {
       return res.status(400).json({
-        error: "barber_id, service_id, date and time_slot are required"
+        error: "barber_id, service_id(s), date and time_slot are required"
       });
     }
 
-    const booking = {
+    // Insert one booking per service
+    const bookings = services.map(sid => ({
       barber_id,
-      service_id,
+      service_id: sid,
       customer_id: req.user.id,
       date,
       time_slot,
       home_service: home_service || false,
-      status: "pending"
-    };
+      status: "pending",
+      total_amount: total_amount || null
+    }));
 
     const { error } = await supabase
       .from("bookings")
-      .insert(booking);
+      .insert(bookings);
 
     if (error) {
       return res.status(400).json(error);
@@ -51,7 +58,7 @@ export async function createBooking(req, res) {
     if (barber) {
       await supabase.from("notifications").insert({
         user_id: barber.user_id,
-        message: "Nai booking aayi hai! Check karein.",
+        message: `New booking received! ${services.length} service(s) booked for ${date} at ${time_slot}.`,
       });
     }
 
@@ -75,7 +82,7 @@ export async function getMyBookings(req, res) {
 
     const { data, error } = await supabase
       .from("bookings")
-      .select("*, services(name, price, duration)")
+      .select("*, services(name, price, duration, home_service)")
       .eq("customer_id", req.user.id)
       .order("created_at", { ascending: false });
 
@@ -111,7 +118,7 @@ export async function getBarberBookings(req, res) {
 
     const { data, error } = await supabase
       .from("bookings")
-      .select("*, services(name, price, duration)")
+      .select("*, services(name, price, duration, home_service), profiles(full_name, avatar_url)")
       .eq("barber_id", barber.id)
       .order("created_at", { ascending: false });
 
@@ -119,7 +126,24 @@ export async function getBarberBookings(req, res) {
       return res.status(400).json(error);
     }
 
-    return res.json(data);
+    // Group bookings by date + time_slot + customer
+    const grouped = {};
+    data.forEach(booking => {
+      const key = `${booking.customer_id}_${booking.date}_${booking.time_slot}`;
+      if (!grouped[key]) {
+        grouped[key] = {
+          ...booking,
+          services_list: [],
+          total_price: 0
+        };
+      }
+      if (booking.services) {
+        grouped[key].services_list.push(booking.services);
+        grouped[key].total_price += booking.services.price || 0;
+      }
+    });
+
+    return res.json(Object.values(grouped));
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
@@ -136,7 +160,7 @@ export async function getAllBookings(req, res) {
 
     const { data, error } = await supabase
       .from("bookings")
-      .select("*, services(name, price, duration)")
+      .select("*, services(name, price, duration, home_service)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -287,7 +311,6 @@ export async function verifyOtp(req, res) {
       return res.status(400).json({ error: "Invalid OTP" });
     }
 
-    // ✅ OTP match — service complete karo
     const { error } = await supabase
       .from("bookings")
       .update({ status: "completed", otp_verified: true })
@@ -295,7 +318,6 @@ export async function verifyOtp(req, res) {
 
     if (error) return res.status(400).json(error);
 
-    // 🔔 Customer ko completion notification
     await supabase.from("notifications").insert({
       user_id: booking.customer_id,
       message: "Your service has been completed successfully! ✅ Thank you for choosing us.",
@@ -351,4 +373,4 @@ export async function markNotificationsRead(req, res) {
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
-           }
+      }
