@@ -128,7 +128,7 @@ export async function getBarberBookings(req, res) {
       return res.status(400).json(error);
     }
 
-    // ✅ Group by customer + date + time_slot — ek OTP use karo
+    // ✅ Group by customer + date + time_slot
     const grouped = {};
     data.forEach(booking => {
       const key = `${booking.customer_id}_${booking.date}_${booking.time_slot}`;
@@ -137,7 +137,7 @@ export async function getBarberBookings(req, res) {
           ...booking,
           services_list: [],
           total_price: 0,
-          otp: booking.otp // shared OTP
+          otp: booking.otp
         };
       }
       if (booking.services) {
@@ -252,7 +252,6 @@ export async function updateBookingStatus(req, res) {
       return res.status(400).json({ error: "Invalid status" });
     }
 
-    // ✅ Pehli booking nikaalo customer_id aur time_slot ke liye
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .select("customer_id, date, time_slot, barber_id")
@@ -263,13 +262,11 @@ export async function updateBookingStatus(req, res) {
       return res.status(404).json({ error: "Booking not found" });
     }
 
-    // ✅ Ek OTP generate karo sabhi related bookings ke liye
     let otp = null;
     if (status === "approved") {
       otp = Math.floor(100000 + Math.random() * 900000).toString();
     }
 
-    // ✅ Sabhi same customer + date + time_slot bookings update karo
     const { error } = await supabase
       .from("bookings")
       .update({ status, ...(otp && { otp }) })
@@ -280,7 +277,6 @@ export async function updateBookingStatus(req, res) {
 
     if (error) return res.status(400).json(error);
 
-    // 🔔 Customer ko SIRF EK notification bhejo
     await supabase.from("notifications").insert({
       user_id: booking.customer_id,
       message: status === "approved"
@@ -323,7 +319,6 @@ export async function verifyOtp(req, res) {
       return res.status(400).json({ error: "Invalid OTP" });
     }
 
-    // ✅ Sabhi related bookings complete karo
     const { error } = await supabase
       .from("bookings")
       .update({ status: "completed", otp_verified: true })
@@ -334,7 +329,6 @@ export async function verifyOtp(req, res) {
 
     if (error) return res.status(400).json(error);
 
-    // 🔔 Customer ko ek completion notification
     await supabase.from("notifications").insert({
       user_id: booking.customer_id,
       message: "Your service has been completed successfully! ✅ Thank you for choosing us.",
@@ -357,7 +351,7 @@ export async function getNotifications(req, res) {
 
     const { data, error } = await supabase
       .from("notifications")
-      .select("*, profiles(full_name, avatar_url)")
+      .select("*")
       .eq("user_id", req.user.id)
       .order("created_at", { ascending: false });
 
@@ -390,4 +384,4 @@ export async function markNotificationsRead(req, res) {
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
-  }
+          }
