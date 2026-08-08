@@ -19,7 +19,6 @@ export async function createBooking(req, res) {
       total_amount
     } = req.body;
 
-    // Support both single and multiple services
     const services = service_ids || (service_id ? [service_id] : []);
 
     if (!barber_id || !services.length || !date || !time_slot) {
@@ -28,7 +27,9 @@ export async function createBooking(req, res) {
       });
     }
 
-    // Insert one booking per service
+    // ✅ Generate ONE shared OTP for all services in this booking
+    const sharedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+
     const bookings = services.map(sid => ({
       barber_id,
       service_id: sid,
@@ -37,7 +38,8 @@ export async function createBooking(req, res) {
       time_slot,
       home_service: home_service || false,
       status: "pending",
-      total_amount: total_amount || null
+      total_amount: total_amount || null,
+      otp: sharedOtp
     }));
 
     const { error } = await supabase
@@ -48,7 +50,7 @@ export async function createBooking(req, res) {
       return res.status(400).json(error);
     }
 
-    // 🔔 Barber ko notification bhejo
+    // 🔔 Barber ko ek notification bhejo
     const { data: barber } = await supabase
       .from("barbers")
       .select("user_id")
@@ -126,7 +128,7 @@ export async function getBarberBookings(req, res) {
       return res.status(400).json(error);
     }
 
-    // Group bookings by date + time_slot + customer
+    // ✅ Group by customer + date + time_slot — ek OTP use karo
     const grouped = {};
     data.forEach(booking => {
       const key = `${booking.customer_id}_${booking.date}_${booking.time_slot}`;
@@ -134,11 +136,16 @@ export async function getBarberBookings(req, res) {
         grouped[key] = {
           ...booking,
           services_list: [],
-          total_price: 0
+          total_price: 0,
+          otp: booking.otp // shared OTP
         };
       }
       if (booking.services) {
-        grouped[key].services_list.push(booking.services);
+        grouped[key].services_list.push({
+          ...booking.services,
+          booking_id: booking.id,
+          status: booking.status
+        });
         grouped[key].total_price += booking.services.price || 0;
       }
     });
@@ -245,9 +252,10 @@ export async function updateBookingStatus(req, res) {
       return res.status(400).json({ error: "Invalid status" });
     }
 
+    // ✅ Pehli booking nikaalo customer_id aur time_slot ke liye
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
-      .select("customer_id")
+      .select("customer_id, date, time_slot, barber_id")
       .eq("id", id)
       .single();
 
@@ -255,20 +263,24 @@ export async function updateBookingStatus(req, res) {
       return res.status(404).json({ error: "Booking not found" });
     }
 
-    // ✅ OTP generate karo agar approved
+    // ✅ Ek OTP generate karo sabhi related bookings ke liye
     let otp = null;
     if (status === "approved") {
       otp = Math.floor(100000 + Math.random() * 900000).toString();
     }
 
+    // ✅ Sabhi same customer + date + time_slot bookings update karo
     const { error } = await supabase
       .from("bookings")
       .update({ status, ...(otp && { otp }) })
-      .eq("id", id);
+      .eq("customer_id", booking.customer_id)
+      .eq("date", booking.date)
+      .eq("time_slot", booking.time_slot)
+      .eq("barber_id", booking.barber_id);
 
     if (error) return res.status(400).json(error);
 
-    // 🔔 Customer ko notification bhejo
+    // 🔔 Customer ko SIRF EK notification bhejo
     await supabase.from("notifications").insert({
       user_id: booking.customer_id,
       message: status === "approved"
@@ -299,7 +311,7 @@ export async function verifyOtp(req, res) {
 
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
-      .select("otp, status, customer_id")
+      .select("otp, status, customer_id, date, time_slot, barber_id")
       .eq("id", booking_id)
       .single();
 
@@ -311,13 +323,18 @@ export async function verifyOtp(req, res) {
       return res.status(400).json({ error: "Invalid OTP" });
     }
 
+    // ✅ Sabhi related bookings complete karo
     const { error } = await supabase
       .from("bookings")
       .update({ status: "completed", otp_verified: true })
-      .eq("id", booking_id);
+      .eq("customer_id", booking.customer_id)
+      .eq("date", booking.date)
+      .eq("time_slot", booking.time_slot)
+      .eq("barber_id", booking.barber_id);
 
     if (error) return res.status(400).json(error);
 
+    // 🔔 Customer ko ek completion notification
     await supabase.from("notifications").insert({
       user_id: booking.customer_id,
       message: "Your service has been completed successfully! ✅ Thank you for choosing us.",
@@ -340,7 +357,7 @@ export async function getNotifications(req, res) {
 
     const { data, error } = await supabase
       .from("notifications")
-      .select("*")
+      .select("*, profiles(full_name, avatar_url)")
       .eq("user_id", req.user.id)
       .order("created_at", { ascending: false });
 
@@ -373,4 +390,4 @@ export async function markNotificationsRead(req, res) {
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
-      }
+  }
