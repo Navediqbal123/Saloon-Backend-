@@ -4,7 +4,8 @@ import {
   approveBarber,
   getPendingBarbers,
   getApprovedBarbers,
-  getMyBarberProfile
+  getMyBarberProfile,
+  updateShopDetails
 } from "../controllers/barber.controller.js";
 
 import {
@@ -52,6 +53,13 @@ router.post("/approve/:id", authMiddleware, approveBarber);
  * =========================
  */
 router.get("/me", authMiddleware, getMyBarberProfile);
+
+/**
+ * =========================
+ * BARBER → Update shop details
+ * =========================
+ */
+router.patch("/my-shop", authMiddleware, updateShopDetails);
 
 /**
  * =========================
