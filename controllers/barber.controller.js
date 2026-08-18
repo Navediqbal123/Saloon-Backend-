@@ -71,3 +71,40 @@ export async function getMyBarberProfile(req, res) {
     res.json(data);
   } catch (err) { res.status(500).json({ error: "Server error" }); }
 }
+
+// 6. Update Shop Details
+export async function updateShopDetails(req, res) {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { shop_name, location, description, phone } = req.body;
+
+    const { data: barber, error: barberError } = await supabase
+      .from("barbers")
+      .select("id")
+      .eq("user_id", req.user.id)
+      .single();
+
+    if (barberError || !barber) {
+      return res.status(404).json({ error: "Barber profile not found" });
+    }
+
+    const { error } = await supabase
+      .from("barbers")
+      .update({
+        ...(shop_name && { shop_name }),
+        ...(location && { location }),
+        ...(description && { description }),
+        ...(phone && { phone })
+      })
+      .eq("id", barber.id);
+
+    if (error) return res.status(400).json(error);
+
+    res.json({ success: true, message: "Shop details updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+}
