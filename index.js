@@ -16,7 +16,7 @@ const app = express();
 
 // 🔥 FIXED CORS — COOKIE AUTH KE LIYE
 app.use(cors({
-  origin: "https://trimly-prime-booking.lovable.app",
+  origin: ["https://trimly-prime-booking.lovable.app", "https://www.trimlyhub.com", "https://trimlyhub.com"],
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"]
