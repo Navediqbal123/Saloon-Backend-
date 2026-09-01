@@ -19,10 +19,10 @@ export async function addService(req, res) {
       });
     }
 
-    // ✅ STEP 1: Barber record nikaalo (Status check hata diya hai)
+    // ✅ STEP 1: Barber record nikaalo
     const { data: barber, error: barberError } = await supabase
       .from("barbers")
-      .select("id")
+      .select("id, shop_name")
       .eq("user_id", req.user.id)
       .single();
 
@@ -32,7 +32,16 @@ export async function addService(req, res) {
       });
     }
 
-    // ✅ STEP 2: Service insert
+    // ✅ STEP 2: Barber ka personal name nikaalo
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", req.user.id)
+      .single();
+
+    const barberName = profile?.full_name || "Barber";
+
+    // ✅ STEP 3: Service insert
     const { error } = await supabase
       .from("services")
       .insert({
@@ -45,6 +54,21 @@ export async function addService(req, res) {
 
     if (error) {
       return res.status(400).json(error);
+    }
+
+    // 🔔 Sabhi customers ko notification bhejo
+    const { data: customers } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("role", "customer");
+
+    if (customers && customers.length > 0) {
+      const notifications = customers.map(customer => ({
+        user_id: customer.id,
+        message: `🆕 New service by ${barberName} (${barber.shop_name}): '${name}' — ₹${price}. Book now!`
+      }));
+
+      await supabase.from("notifications").insert(notifications);
     }
 
     return res.json({
@@ -92,7 +116,7 @@ export async function getMyServices(req, res) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // ✅ STEP 1: Barber record nikaalo (Status check hata diya hai)
+    // ✅ STEP 1: Barber record nikaalo
     const { data: barber, error: barberError } = await supabase
       .from("barbers")
       .select("id")
@@ -160,4 +184,4 @@ export async function getServices(req, res) {
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
-      }
+}
