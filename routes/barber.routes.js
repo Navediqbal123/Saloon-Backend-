@@ -5,7 +5,8 @@ import {
   getPendingBarbers,
   getApprovedBarbers,
   getMyBarberProfile,
-  updateShopDetails
+  updateShopDetails,
+  getBarberDashboard
 } from "../controllers/barber.controller.js";
 
 import {
@@ -60,6 +61,13 @@ router.get("/me", authMiddleware, getMyBarberProfile);
  * =========================
  */
 router.patch("/my-shop", authMiddleware, updateShopDetails);
+
+/**
+ * =========================
+ * BARBER → Dashboard stats
+ * =========================
+ */
+router.get("/dashboard", authMiddleware, getBarberDashboard);
 
 /**
  * =========================
