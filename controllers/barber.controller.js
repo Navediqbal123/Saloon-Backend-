@@ -108,3 +108,50 @@ export async function updateShopDetails(req, res) {
     res.status(500).json({ error: "Server error" });
   }
 }
+
+// 7. Get Barber Dashboard Stats
+export async function getBarberDashboard(req, res) {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { data: barber, error: barberError } = await supabase
+      .from("barbers")
+      .select("id")
+      .eq("user_id", req.user.id)
+      .eq("status", "approved")
+      .single();
+
+    if (barberError || !barber) {
+      return res.status(403).json({ error: "Not an approved barber" });
+    }
+
+    const { data: bookings, error } = await supabase
+      .from("bookings")
+      .select("*, services(price)")
+      .eq("barber_id", barber.id);
+
+    if (error) return res.status(400).json(error);
+
+    const total = bookings.length;
+    const pending = bookings.filter(b => b.status === "pending").length;
+    const approved = bookings.filter(b => b.status === "approved").length;
+    const completed = bookings.filter(b => b.status === "completed").length;
+    const cancelled = bookings.filter(b => b.status === "cancelled").length;
+    const totalEarnings = bookings
+      .filter(b => b.status === "completed")
+      .reduce((sum, b) => sum + (b.services?.price || 0), 0);
+
+    return res.json({
+      total,
+      pending,
+      approved,
+      completed,
+      cancelled,
+      totalEarnings
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+      }
