@@ -1,6 +1,167 @@
 import supabase from "../config/supabase.js";
 
 // =======================
+// WEEKLY AVAILABILITY CHECK
+// =======================
+function timeSlotToMinutes(timeSlot) {
+  const match = timeSlot.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+
+  if (!match) return null;
+
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const period = match[3].toUpperCase();
+
+  if (hour < 1 || hour > 12 || minute < 0 || minute > 59) {
+    return null;
+  }
+
+  if (period === "AM" && hour === 12) hour = 0;
+  if (period === "PM" && hour !== 12) hour += 12;
+
+  return hour * 60 + minute;
+}
+
+function formatTime(timeValue) {
+  if (!timeValue) return null;
+
+  const [hourString, minuteString] = String(timeValue).split(":");
+
+  let hour = Number(hourString);
+  const minute = Number(minuteString);
+
+  if (
+    Number.isNaN(hour) ||
+    Number.isNaN(minute)
+  ) {
+    return null;
+  }
+
+  const period = hour >= 12 ? "PM" : "AM";
+  let displayHour = hour % 12;
+
+  if (displayHour === 0) displayHour = 12;
+
+  return `${displayHour}:${String(minute).padStart(2, "0")} ${period}`;
+}
+
+async function checkWeeklyAvailability(barberId, date, timeSlot) {
+  const dateObj = new Date(`${date}T12:00:00Z`);
+
+  if (Number.isNaN(dateObj.getTime())) {
+    return {
+      available: false,
+      message: "Invalid booking date",
+    };
+  }
+
+  const days = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+
+  const dayOfWeek = days[dateObj.getUTCDay()];
+
+  const { data: schedule, error } = await supabase
+    .from("weekly_availability")
+    .select(
+      "enabled, start_time, end_time, break_start, break_end"
+    )
+    .eq("barber_id", barberId)
+    .eq("day_of_week", dayOfWeek)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  // If no weekly schedule has been saved yet,
+  // keep the existing booking behavior.
+  if (!schedule) {
+    return {
+      available: true,
+      message: "No weekly schedule configured",
+    };
+  }
+
+  // Any day can be disabled by the barber.
+  if (!schedule.enabled) {
+    return {
+      available: false,
+      message: `Shop is closed on ${dayOfWeek}`,
+    };
+  }
+
+  const slotMinutes = timeSlotToMinutes(timeSlot);
+
+  if (slotMinutes === null) {
+    return {
+      available: false,
+      message: "Invalid time slot",
+    };
+  }
+
+  const startMinutes = timeSlotToMinutes(
+    formatTime(schedule.start_time)
+  );
+
+  const endMinutes = timeSlotToMinutes(
+    formatTime(schedule.end_time)
+  );
+
+  if (startMinutes === null || endMinutes === null) {
+    return {
+      available: false,
+      message: "Invalid shop schedule",
+    };
+  }
+
+  // Block slots outside the barber's opening hours.
+  if (
+    slotMinutes < startMinutes ||
+    slotMinutes >= endMinutes
+  ) {
+    return {
+      available: false,
+      message: "Shop is closed at this time",
+    };
+  }
+
+  // Block slots during the barber's break.
+  if (schedule.break_start && schedule.break_end) {
+    const breakStart = timeSlotToMinutes(
+      formatTime(schedule.break_start)
+    );
+
+    const breakEnd = timeSlotToMinutes(
+      formatTime(schedule.break_end)
+    );
+
+    if (
+      breakStart !== null &&
+      breakEnd !== null &&
+      slotMinutes >= breakStart &&
+      slotMinutes < breakEnd
+    ) {
+      return {
+        available: false,
+        message: "Shop is on break at this time",
+      };
+    }
+  }
+
+  return {
+    available: true,
+    message: "Slot is within shop availability",
+  };
+}
+
+// =======================
 // CREATE BOOKING (USER / ADMIN)
 // =======================
 export async function createBooking(req, res) {
@@ -27,8 +188,52 @@ export async function createBooking(req, res) {
       });
     }
 
-    // ✅ Generate ONE shared OTP for all services in this booking
-    const sharedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    // =======================
+    // CHECK WEEKLY AVAILABILITY
+    // =======================
+    const scheduleCheck = await checkWeeklyAvailability(
+      barber_id,
+      date,
+      time_slot
+    );
+
+    if (!scheduleCheck.available) {
+      return res.status(400).json({
+        error: scheduleCheck.message
+      });
+    }
+
+    // =======================
+    // CHECK EXISTING BOOKING
+    // =======================
+    const { data: existingBooking, error: existingBookingError } =
+      await supabase
+        .from("bookings")
+        .select("id")
+        .eq("barber_id", barber_id)
+        .eq("date", date)
+        .eq("time_slot", time_slot)
+        .neq("status", "cancelled")
+        .neq("status", "completed")
+        .limit(1)
+        .maybeSingle();
+
+    if (existingBookingError) {
+      return res.status(400).json(existingBookingError);
+    }
+
+    if (existingBooking) {
+      return res.status(400).json({
+        error: "This slot is already booked"
+      });
+    }
+
+    // =======================
+    // GENERATE ONE SHARED OTP
+    // =======================
+    const sharedOtp = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
 
     const bookings = services.map(sid => ({
       barber_id,
@@ -68,8 +273,13 @@ export async function createBooking(req, res) {
       success: true,
       message: "Booking created successfully"
     });
+
   } catch (err) {
-    return res.status(500).json({ error: "Server error" });
+    console.error("Create booking error:", err);
+
+    return res.status(500).json({
+      error: "Server error"
+    });
   }
 }
 
@@ -130,8 +340,10 @@ export async function getBarberBookings(req, res) {
 
     // ✅ Group by customer + date + time_slot
     const grouped = {};
+
     data.forEach(booking => {
       const key = `${booking.customer_id}_${booking.date}_${booking.time_slot}`;
+
       if (!grouped[key]) {
         grouped[key] = {
           ...booking,
@@ -140,17 +352,20 @@ export async function getBarberBookings(req, res) {
           otp: booking.otp
         };
       }
+
       if (booking.services) {
         grouped[key].services_list.push({
           ...booking.services,
           booking_id: booking.id,
           status: booking.status
         });
+
         grouped[key].total_price += booking.services.price || 0;
       }
     });
 
     return res.json(Object.values(grouped));
+
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
@@ -195,6 +410,7 @@ export async function cancelBooking(req, res) {
     if (error) return res.status(400).json(error);
 
     res.json({ success: true });
+
   } catch {
     res.status(500).json({ error: "Server error" });
   }
@@ -213,6 +429,21 @@ export async function checkSlotAvailability(req, res) {
       });
     }
 
+    // Check weekly schedule first
+    const scheduleCheck = await checkWeeklyAvailability(
+      barber_id,
+      date,
+      time_slot
+    );
+
+    if (!scheduleCheck.available) {
+      return res.json({
+        available: false,
+        message: scheduleCheck.message
+      });
+    }
+
+    // Check existing booking
     const { data, error } = await supabase
       .from("bookings")
       .select("id")
@@ -221,18 +452,26 @@ export async function checkSlotAvailability(req, res) {
       .eq("time_slot", time_slot)
       .neq("status", "cancelled")
       .neq("status", "completed")
-      .single();
+      .limit(1)
+      .maybeSingle();
 
-    if (error && error.code !== "PGRST116") {
+    if (error) {
       return res.status(400).json(error);
     }
 
     return res.json({
       available: !data,
-      message: data ? "Slot already booked" : "Slot is available"
+      message: data
+        ? "Slot already booked"
+        : "Slot is available"
     });
+
   } catch (err) {
-    return res.status(500).json({ error: "Server error" });
+    console.error("Slot availability error:", err);
+
+    return res.status(500).json({
+      error: "Server error"
+    });
   }
 }
 
@@ -263,13 +502,19 @@ export async function updateBookingStatus(req, res) {
     }
 
     let otp = null;
+
     if (status === "approved") {
-      otp = Math.floor(100000 + Math.random() * 900000).toString();
+      otp = Math.floor(
+        100000 + Math.random() * 900000
+      ).toString();
     }
 
     const { error } = await supabase
       .from("bookings")
-      .update({ status, ...(otp && { otp }) })
+      .update({
+        status,
+        ...(otp && { otp })
+      })
       .eq("customer_id", booking.customer_id)
       .eq("date", booking.date)
       .eq("time_slot", booking.time_slot)
@@ -284,7 +529,11 @@ export async function updateBookingStatus(req, res) {
         : "Your booking has been declined. ❌ Please try booking another slot.",
     });
 
-    return res.json({ success: true, message: `Booking ${status}` });
+    return res.json({
+      success: true,
+      message: `Booking ${status}`
+    });
+
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
@@ -302,7 +551,9 @@ export async function verifyOtp(req, res) {
     const { booking_id, otp } = req.body;
 
     if (!booking_id || !otp) {
-      return res.status(400).json({ error: "booking_id and otp are required" });
+      return res.status(400).json({
+        error: "booking_id and otp are required"
+      });
     }
 
     const { data: booking, error: bookingError } = await supabase
@@ -321,7 +572,10 @@ export async function verifyOtp(req, res) {
 
     const { error } = await supabase
       .from("bookings")
-      .update({ status: "completed", otp_verified: true })
+      .update({
+        status: "completed",
+        otp_verified: true
+      })
       .eq("customer_id", booking.customer_id)
       .eq("date", booking.date)
       .eq("time_slot", booking.time_slot)
@@ -334,7 +588,11 @@ export async function verifyOtp(req, res) {
       message: "Your service has been completed successfully! ✅ Thank you for choosing us.",
     });
 
-    return res.json({ success: true, message: "Service completed successfully" });
+    return res.json({
+      success: true,
+      message: "Service completed successfully"
+    });
+
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
@@ -358,6 +616,7 @@ export async function getNotifications(req, res) {
     if (error) return res.status(400).json(error);
 
     return res.json(data);
+
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
@@ -381,7 +640,8 @@ export async function markNotificationsRead(req, res) {
     if (error) return res.status(400).json(error);
 
     return res.json({ success: true });
+
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
-          }
+}
