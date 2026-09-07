@@ -155,3 +155,90 @@ export async function getBarberDashboard(req, res) {
     res.status(500).json({ error: "Server error" });
   }
       }
+// 8. Permanently Delete My Shop
+export async function deleteMyShop(req, res) {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    // Find only the shop belonging to the logged-in barber
+    const { data: barber, error: barberError } = await supabase
+      .from("barbers")
+      .select("id")
+      .eq("user_id", req.user.id)
+      .single();
+
+    if (barberError || !barber) {
+      return res.status(404).json({ error: "Shop not found" });
+    }
+
+    const barberId = barber.id;
+
+    // 1. Get all shop images
+    const { data: files, error: listError } = await supabase.storage
+      .from("shop-images")
+      .list(barberId, { limit: 1000 });
+
+    if (listError) {
+      return res.status(400).json({
+        error: "Failed to read shop images",
+        details: listError.message
+      });
+    }
+
+    // 2. Delete shop images from Storage
+    if (files && files.length > 0) {
+      const filePaths = files.map((file) => `${barberId}/${file.name}`);
+
+      const { error: storageError } = await supabase.storage
+        .from("shop-images")
+        .remove(filePaths);
+
+      if (storageError) {
+        return res.status(400).json({
+          error: "Failed to delete shop images",
+          details: storageError.message
+        });
+      }
+    }
+
+    // 3. Delete shop image records
+    const { error: mediaError } = await supabase
+      .from("shop_media")
+      .delete()
+      .eq("barber_id", barberId);
+
+    if (mediaError) {
+      return res.status(400).json({
+        error: "Failed to delete shop media records",
+        details: mediaError.message
+      });
+    }
+
+    // 4. Delete barber/shop
+    // Related services, availability, weekly availability,
+    // bookings and reviews are now CASCADE.
+    const { error: deleteError } = await supabase
+      .from("barbers")
+      .delete()
+      .eq("id", barberId)
+      .eq("user_id", req.user.id);
+
+    if (deleteError) {
+      return res.status(400).json({
+        error: "Failed to delete shop",
+        details: deleteError.message
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Shop permanently deleted"
+    });
+
+  } catch (err) {
+    console.error("Delete shop error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+}
