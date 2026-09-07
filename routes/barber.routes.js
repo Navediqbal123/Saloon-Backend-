@@ -6,7 +6,8 @@ import {
   getApprovedBarbers,
   getMyBarberProfile,
   updateShopDetails,
-  getBarberDashboard
+  getBarberDashboard,
+  deleteMyShop
 } from "../controllers/barber.controller.js";
 
 import {
@@ -68,6 +69,13 @@ router.patch("/my-shop", authMiddleware, updateShopDetails);
  * =========================
  */
 router.get("/dashboard", authMiddleware, getBarberDashboard);
+
+/**
+ * =========================
+ * BARBER → Permanently Delete Shop
+ * =========================
+ */
+router.delete("/my-shop", authMiddleware, deleteMyShop);
 
 /**
  * =========================
