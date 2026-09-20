@@ -79,8 +79,7 @@ export async function updateShopDetails(req, res) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const { shop_name, location, description, phone } = req.body;
-
+   const { shop_name, location, description, phone, latitude, longitude } = req.body;
     const { data: barber, error: barberError } = await supabase
       .from("barbers")
       .select("id")
@@ -98,6 +97,8 @@ export async function updateShopDetails(req, res) {
         ...(location && { location }),
         ...(description && { description }),
         ...(phone && { phone })
+        ...(latitude !== undefined && { latitude }),
+        ...(longitude !== undefined && { longitude })
       })
       .eq("id", barber.id);
 
