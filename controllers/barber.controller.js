@@ -90,17 +90,17 @@ export async function updateShopDetails(req, res) {
       return res.status(404).json({ error: "Barber profile not found" });
     }
 
-    const { error } = await supabase
-      .from("barbers")
-      .update({
-        ...(shop_name && { shop_name }),
-        ...(location && { location }),
-        ...(description && { description }),
-        ...(phone && { phone })
-        ...(latitude !== undefined && { latitude }),
-        ...(longitude !== undefined && { longitude })
-      })
-      .eq("id", barber.id);
+   const { error } = await supabase
+  .from("barbers")
+  .update({
+    ...(shop_name && { shop_name }),
+    ...(location && { location }),
+    ...(description && { description }),
+    ...(phone && { phone }),
+    ...(latitude !== undefined && { latitude }),
+    ...(longitude !== undefined && { longitude })
+  })
+  .eq("id", barber.id);
 
     if (error) return res.status(400).json(error);
 
