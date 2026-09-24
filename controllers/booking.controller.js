@@ -500,7 +500,21 @@ export async function updateBookingStatus(req, res) {
     if (bookingError || !booking) {
       return res.status(404).json({ error: "Booking not found" });
     }
+// Block actions after booking date/time has expired
+const bookingDateTime = new Date(`${booking.date}T${booking.time_slot}`);
+const now = new Date();
 
+if (Number.isNaN(bookingDateTime.getTime())) {
+  return res.status(400).json({
+    error: "Invalid booking date or time"
+  });
+}
+
+if (now >= bookingDateTime) {
+  return res.status(400).json({
+    error: "This booking has expired. It can no longer be approved or rejected."
+  });
+}
     let otp = null;
 
     if (status === "approved") {
