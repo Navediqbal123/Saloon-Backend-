@@ -15,13 +15,35 @@ dotenv.config();
 
 const app = express();
 
-// 🔥 FIXED CORS — COOKIE AUTH KE LIYE
-app.use(cors({
-  origin: ["https://trimly-prime-booking.lovable.app", "https://www.trimlyhub.com", "https://trimlyhub.com"],
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
+// =========================
+// CORS
+// =========================
+const allowedOrigins = [
+  "https://trimly-prime-booking.lovable.app",
+  "https://www.trimlyhub.com",
+  "https://trimlyhub.com",
+  "https://id-preview--27262027-4cab-47a6-a934-e97feae3b270.lovable.app",
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests without an Origin header
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 app.use(express.json());
 
@@ -48,6 +70,7 @@ app.get("/", (req, res) => {
 // PORT
 // =========================
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
   console.log("Server started on port", PORT);
 });
