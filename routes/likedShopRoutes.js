@@ -4,11 +4,12 @@ import {
   unlikeShop,
   getLikedShops,
 } from "../controllers/likedShopController.js";
+import { authMiddleware } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/like", likeShop);
-router.delete("/unlike", unlikeShop);
-router.get("/:customer_id", getLikedShops);
+router.post("/like", authMiddleware, likeShop);
+router.delete("/unlike", authMiddleware, unlikeShop);
+router.get("/", authMiddleware, getLikedShops);
 
 export default router;
