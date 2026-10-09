@@ -8,44 +8,50 @@ const supabase = createClient(
 // Like a shop
 export const likeShop = async (req, res) => {
   try {
-    const { customer_id, shop_id } = req.body;
+    const customer_id = req.user?.id;
+    const { shop_id } = req.body;
 
-    if (!customer_id || !shop_id) {
+    if (!customer_id) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+    }
+
+    if (
+      typeof shop_id !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(shop_id)
+    ) {
       return res.status(400).json({
         success: false,
-        message: "customer_id and shop_id are required",
+        message: "Valid shop_id is required",
       });
     }
 
     const { data, error } = await supabase
       .from("liked_shops")
-      .insert({
-        customer_id,
-        shop_id,
-      })
+      .insert({ customer_id, shop_id })
       .select()
       .single();
 
-    if (error) {
-      if (error.code === "23505") {
-        return res.status(409).json({
-          success: false,
-          message: "Shop already liked",
-        });
-      }
-
-      throw error;
+    if (error?.code === "23505") {
+      return res.status(409).json({
+        success: false,
+        message: "Shop already liked",
+      });
     }
 
-    res.status(201).json({
+    if (error) throw error;
+
+    return res.status(201).json({
       success: true,
       message: "Shop liked successfully",
       data,
     });
   } catch (error) {
-    console.error("Like shop error:", error);
+    console.error("Like shop error:", error.message);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to like shop",
     });
@@ -55,12 +61,23 @@ export const likeShop = async (req, res) => {
 // Unlike a shop
 export const unlikeShop = async (req, res) => {
   try {
-    const { customer_id, shop_id } = req.body;
+    const customer_id = req.user?.id;
+    const { shop_id } = req.body;
 
-    if (!customer_id || !shop_id) {
+    if (!customer_id) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+    }
+
+    if (
+      typeof shop_id !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(shop_id)
+    ) {
       return res.status(400).json({
         success: false,
-        message: "customer_id and shop_id are required",
+        message: "Valid shop_id is required",
       });
     }
 
@@ -72,29 +89,29 @@ export const unlikeShop = async (req, res) => {
 
     if (error) throw error;
 
-    res.json({
+    return res.json({
       success: true,
       message: "Shop unliked successfully",
     });
   } catch (error) {
-    console.error("Unlike shop error:", error);
+    console.error("Unlike shop error:", error.message);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to unlike shop",
     });
   }
 };
 
-// Get customer's liked shops
+// Get logged-in customer's liked shops
 export const getLikedShops = async (req, res) => {
   try {
-    const { customer_id } = req.params;
+    const customer_id = req.user?.id;
 
     if (!customer_id) {
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
-        message: "customer_id is required",
+        message: "Authentication required",
       });
     }
 
@@ -106,14 +123,14 @@ export const getLikedShops = async (req, res) => {
 
     if (error) throw error;
 
-    res.json({
+    return res.json({
       success: true,
-      data,
+      data: data ?? [],
     });
   } catch (error) {
-    console.error("Get liked shops error:", error);
+    console.error("Get liked shops error:", error.message);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to fetch liked shops",
     });
