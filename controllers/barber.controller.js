@@ -1,23 +1,89 @@
 import supabase from "../config/supabase.js";
 
-// 1. Register Barber
+// 1. Register Barber with Shop Location
 export async function registerBarber(req, res) {
   try {
-    const { shop_name, location } = req.body;
+    const {
+      shop_name,
+      location,
+      latitude,
+      longitude
+    } = req.body;
+
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized"
+      });
+    }
+
+    // Validate GPS coordinates when provided
+    const hasLatitude = latitude !== undefined && latitude !== null;
+    const hasLongitude = longitude !== undefined && longitude !== null;
+
+    if (hasLatitude !== hasLongitude) {
+      return res.status(400).json({
+        success: false,
+        error: "Both latitude and longitude are required"
+      });
+    }
+
+    if (hasLatitude) {
+      if (
+        !Number.isFinite(Number(latitude)) ||
+        !Number.isFinite(Number(longitude)) ||
+        Number(latitude) < -90 ||
+        Number(latitude) > 90 ||
+        Number(longitude) < -180 ||
+        Number(longitude) > 180
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid GPS coordinates"
+        });
+      }
+    }
+
+    const barberData = {
+      user_id: req.user.id,
+      shop_name: shop_name?.trim() || "My Salon",
+      location: location?.trim() || "Not set",
+      status: "pending",
+      ...(hasLatitude && {
+        latitude: Number(latitude),
+        longitude: Number(longitude),
+        location_updated_at: new Date().toISOString(),
+        location_verified: false
+      })
+    };
+
     const { data, error } = await supabase
       .from("barbers")
-      .insert({
-        user_id: req.user.id,
-        shop_name: shop_name || "My Salon",
-        location: location || "Not set",
-        status: "pending"
-      })
+      .insert(barberData)
       .select()
       .single();
 
-    if (error) return res.status(400).json(error);
-    res.json({ success: true, data });
-  } catch (err) { res.status(500).json({ error: "Server error" }); }
+    if (error) {
+      console.error("Register barber error:", error);
+
+      return res.status(400).json({
+        success: false,
+        error: "Failed to register barber"
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      data
+    });
+  } catch (err) {
+    console.error("Register barber server error:", err);
+
+    return res.status(500).json({
+      success: false,
+      error: "Server error"
+    });
+  }
 }
 
 // 2. Approve Barber
