@@ -6,25 +6,14 @@ export async function getAllUsers(req, res) {
       .from("profiles")
       .select("id, email, role, created_at");
 
-    if (error) return res.status(400).json(error);
-    res.json(data);
-  } catch {
-    res.status(500).json({ error: "Server error" });
-  }
-}
+    if (error) {
+      console.error("Get users error:", error);
+      return res.status(500).json({ error: "Failed to fetch users" });
+    }
 
-export async function approveBarber(req, res) {
-  const { userId, requestId } = req.body; 
-  try {
-    // 1. Request table status update
-    await supabase.from("barber_requests").update({ status: "approved" }).eq("id", requestId);
-
-    // 2. Profile role update (Permanent fix for refresh issue)
-    const { error } = await supabase.from("profiles").update({ role: "barber" }).eq("id", userId);
-
-    if (error) return res.status(400).json(error);
-    res.json({ message: "Barber Approved & Role Updated Successfully!" });
+    return res.json(data);
   } catch (err) {
-    res.status(500).json({ error: "Server error" });
+    console.error("Get users error:", err);
+    return res.status(500).json({ error: "Server error" });
   }
 }
