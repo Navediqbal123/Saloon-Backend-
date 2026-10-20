@@ -1,3 +1,4 @@
+
 import express from "express";
 import {
   registerBarber,
@@ -18,6 +19,7 @@ import {
 } from "../controllers/service.controller.js";
 
 import { authMiddleware } from "../middleware/auth.middleware.js";
+import { adminMiddleware } from "../middleware/admin.middleware.js";
 
 const router = express.Router();
 
@@ -33,7 +35,7 @@ router.post("/register", authMiddleware, registerBarber);
  * ADMIN → Pending barber requests
  * =========================
  */
-router.get("/pending", authMiddleware, getPendingBarbers);
+router.get("/pending", authMiddleware, adminMiddleware, getPendingBarbers);
 
 /**
  * =========================
@@ -44,10 +46,10 @@ router.get("/approved", authMiddleware, getApprovedBarbers);
 
 /**
  * =========================
- * ADMIN → Approve barber
+ * ADMIN → Approve Barber
  * =========================
  */
-router.post("/approve/:id", authMiddleware, approveBarber);
+router.post("/approve/:id", authMiddleware, adminMiddleware, approveBarber);
 
 /**
  * =========================
@@ -106,3 +108,4 @@ router.get("/services/:barber_id", authMiddleware, getServicesByBarber);
 router.get("/my-services", authMiddleware, getMyServices);
 
 export default router;
+  
