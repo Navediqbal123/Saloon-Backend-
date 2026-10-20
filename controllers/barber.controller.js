@@ -1,23 +1,15 @@
+
 import supabase from "../config/supabase.js";
 
 // 1. Register Barber with Shop Location
 export async function registerBarber(req, res) {
   try {
-    const {
-      shop_name,
-      location,
-      latitude,
-      longitude
-    } = req.body;
+    const { shop_name, location, latitude, longitude } = req.body;
 
-    if (!req.user || !req.user.id) {
-      return res.status(401).json({
-        success: false,
-        error: "Unauthorized"
-      });
+    if (!req.user?.id) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
-    // Validate GPS coordinates when provided
     const hasLatitude = latitude !== undefined && latitude !== null;
     const hasLongitude = longitude !== undefined && longitude !== null;
 
@@ -65,62 +57,129 @@ export async function registerBarber(req, res) {
 
     if (error) {
       console.error("Register barber error:", error);
-
       return res.status(400).json({
         success: false,
         error: "Failed to register barber"
       });
     }
 
-    return res.status(201).json({
-      success: true,
-      data
-    });
+    return res.status(201).json({ success: true, data });
   } catch (err) {
     console.error("Register barber server error:", err);
-
-    return res.status(500).json({
-      success: false,
-      error: "Server error"
-    });
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 }
 
-// 2. Approve Barber
+// 2. Approve Barber — admin access is enforced by adminMiddleware on routes
 export async function approveBarber(req, res) {
   try {
-    const { id, user_id } = req.body;
+    // Support both existing frontend request formats.
+    const id = req.params.id || req.body.id || req.body.requestId;
+    const requestedUserId = req.body.user_id || req.body.userId;
 
-    if (!id || !user_id) {
-      return res.status(400).json({ error: "Missing id or user_id" });
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: "Barber request ID is required"
+      });
     }
 
-    await supabase.from("barbers").update({ status: "approved" }).eq("id", id);
+    let query = supabase
+      .from("barbers")
+      .select("id, user_id, status")
+      .eq("id", id)
+      .eq("status", "pending");
 
-    const { error: profileError } = await supabase.from("profiles").update({ role: "barber" }).eq("id", user_id);
+    if (requestedUserId) {
+      query = query.eq("user_id", requestedUserId);
+    }
 
-    if (profileError) return res.status(400).json(profileError);
+    const { data: barber, error: findError } = await query.maybeSingle();
 
-    res.json({ success: true, message: "Approved & Role Updated!" });
-  } catch (err) { res.status(500).json({ error: "Server error" }); }
+    if (findError) {
+      console.error("Find barber request error:", findError);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to verify barber request"
+      });
+    }
+
+    if (!barber) {
+      return res.status(404).json({
+        success: false,
+        error: "Pending barber request not found"
+      });
+    }
+
+    const { data: updatedBarber, error: updateError } = await supabase
+      .from("barbers")
+      .update({ status: "approved" })
+      .eq("id", barber.id)
+      .eq("user_id", barber.user_id)
+      .eq("status", "pending")
+      .select("id, user_id, status")
+      .maybeSingle();
+
+    if (updateError || !updatedBarber) {
+      console.error("Approve barber update error:", updateError);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to approve barber"
+      });
+    }
+
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ role: "barber" })
+      .eq("id", barber.user_id);
+
+    if (profileError) {
+      console.error("Update barber profile role error:", profileError);
+      return res.status(500).json({
+        success: false,
+        error: "Barber approved, but profile role update failed"
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Barber approved successfully",
+      data: updatedBarber
+    });
+  } catch (err) {
+    console.error("Approve barber error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
 }
 
 // 3. Get Pending
 export async function getPendingBarbers(req, res) {
   try {
-    const { data, error } = await supabase.from("barbers").select("*").eq("status", "pending");
+    const { data, error } = await supabase
+      .from("barbers")
+      .select("*")
+      .eq("status", "pending");
+
     if (error) return res.status(400).json(error);
-    res.json(data);
-  } catch (err) { res.status(500).json({ error: "Server error" }); }
+    return res.json(data);
+  } catch (err) {
+    return res.status(500).json({ error: "Server error" });
+  }
 }
 
 // 4. Get Approved
 export async function getApprovedBarbers(req, res) {
   try {
-    const { data, error } = await supabase.from("barbers").select("*").eq("status", "approved");
+    const { data, error } = await supabase
+      .from("barbers")
+      .select("*")
+      .eq("status", "approved");
+
     if (error) return res.status(400).json(error);
-    res.json(data);
-  } catch (err) { res.status(500).json({ error: "Server error" }); }
+    return res.json(data);
+  } catch (err) {
+    return res.status(500).json({ error: "Server error" });
+  }
 }
 
 // 5. Get My Barber Profile
@@ -132,20 +191,43 @@ export async function getMyBarberProfile(req, res) {
       .eq("user_id", req.user.id)
       .single();
 
-    if (error || !data) return res.status(404).json({ message: "Barber profile not found" });
+    if (error || !data) {
+      return res.status(404).json({ message: "Barber profile not found" });
+    }
 
-    res.json(data);
-  } catch (err) { res.status(500).json({ error: "Server error" }); }
+    return res.json(data);
+  } catch (err) {
+    return res.status(500).json({ error: "Server error" });
+  }
 }
 
 // 6. Update Shop Details
 export async function updateShopDetails(req, res) {
   try {
-    if (!req.user || !req.user.id) {
+    if (!req.user?.id) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-   const { shop_name, location, description, phone, latitude, longitude } = req.body;
+    const { shop_name, location, description, phone, latitude, longitude } = req.body;
+
+    const hasLatitude = latitude !== undefined && latitude !== null;
+    const hasLongitude = longitude !== undefined && longitude !== null;
+
+    if (hasLatitude !== hasLongitude) {
+      return res.status(400).json({
+        error: "Both latitude and longitude are required"
+      });
+    }
+
+    if (hasLatitude && (
+      !Number.isFinite(Number(latitude)) ||
+      !Number.isFinite(Number(longitude)) ||
+      Number(latitude) < -90 || Number(latitude) > 90 ||
+      Number(longitude) < -180 || Number(longitude) > 180
+    )) {
+      return res.status(400).json({ error: "Invalid GPS coordinates" });
+    }
+
     const { data: barber, error: barberError } = await supabase
       .from("barbers")
       .select("id")
@@ -156,30 +238,37 @@ export async function updateShopDetails(req, res) {
       return res.status(404).json({ error: "Barber profile not found" });
     }
 
-   const { error } = await supabase
-  .from("barbers")
-  .update({
-    ...(shop_name && { shop_name }),
-    ...(location && { location }),
-    ...(description && { description }),
-    ...(phone && { phone }),
-    ...(latitude !== undefined && { latitude }),
-    ...(longitude !== undefined && { longitude })
-  })
-  .eq("id", barber.id);
+    const { error } = await supabase
+      .from("barbers")
+      .update({
+        ...(shop_name !== undefined && { shop_name }),
+        ...(location !== undefined && { location }),
+        ...(description !== undefined && { description }),
+        ...(phone !== undefined && { phone }),
+        ...(hasLatitude && {
+          latitude: Number(latitude),
+          longitude: Number(longitude)
+        })
+      })
+      .eq("id", barber.id)
+      .eq("user_id", req.user.id);
 
     if (error) return res.status(400).json(error);
 
-    res.json({ success: true, message: "Shop details updated successfully" });
+    return res.json({
+      success: true,
+      message: "Shop details updated successfully"
+    });
   } catch (err) {
-    res.status(500).json({ error: "Server error" });
+    console.error("Update shop details error:", err);
+    return res.status(500).json({ error: "Server error" });
   }
 }
 
 // 7. Get Barber Dashboard Stats
 export async function getBarberDashboard(req, res) {
   try {
-    if (!req.user || !req.user.id) {
+    if (!req.user?.id) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
@@ -201,12 +290,13 @@ export async function getBarberDashboard(req, res) {
 
     if (error) return res.status(400).json(error);
 
-    const total = bookings.length;
-    const pending = bookings.filter(b => b.status === "pending").length;
-    const approved = bookings.filter(b => b.status === "approved").length;
-    const completed = bookings.filter(b => b.status === "completed").length;
-    const cancelled = bookings.filter(b => b.status === "cancelled").length;
-    const totalEarnings = bookings
+    const safeBookings = bookings ?? [];
+    const total = safeBookings.length;
+    const pending = safeBookings.filter(b => b.status === "pending").length;
+    const approved = safeBookings.filter(b => b.status === "approved").length;
+    const completed = safeBookings.filter(b => b.status === "completed").length;
+    const cancelled = safeBookings.filter(b => b.status === "cancelled").length;
+    const totalEarnings = safeBookings
       .filter(b => b.status === "completed")
       .reduce((sum, b) => sum + (b.services?.price || 0), 0);
 
@@ -219,17 +309,18 @@ export async function getBarberDashboard(req, res) {
       totalEarnings
     });
   } catch (err) {
-    res.status(500).json({ error: "Server error" });
+    console.error("Barber dashboard error:", err);
+    return res.status(500).json({ error: "Server error" });
   }
-      }
+}
+
 // 8. Permanently Delete My Shop
 export async function deleteMyShop(req, res) {
   try {
-    if (!req.user || !req.user.id) {
+    if (!req.user?.id) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // Find only the shop belonging to the logged-in barber
     const { data: barber, error: barberError } = await supabase
       .from("barbers")
       .select("id")
@@ -242,7 +333,6 @@ export async function deleteMyShop(req, res) {
 
     const barberId = barber.id;
 
-    // 1. Get all shop images
     const { data: files, error: listError } = await supabase.storage
       .from("shop-images")
       .list(barberId, { limit: 1000 });
@@ -254,9 +344,8 @@ export async function deleteMyShop(req, res) {
       });
     }
 
-    // 2. Delete shop images from Storage
     if (files && files.length > 0) {
-      const filePaths = files.map((file) => `${barberId}/${file.name}`);
+      const filePaths = files.map(file => `${barberId}/${file.name}`);
 
       const { error: storageError } = await supabase.storage
         .from("shop-images")
@@ -270,7 +359,6 @@ export async function deleteMyShop(req, res) {
       }
     }
 
-    // 3. Delete shop image records
     const { error: mediaError } = await supabase
       .from("shop_media")
       .delete()
@@ -283,9 +371,6 @@ export async function deleteMyShop(req, res) {
       });
     }
 
-    // 4. Delete barber/shop
-    // Related services, availability, weekly availability,
-    // bookings and reviews are now CASCADE.
     const { error: deleteError } = await supabase
       .from("barbers")
       .delete()
@@ -303,9 +388,9 @@ export async function deleteMyShop(req, res) {
       success: true,
       message: "Shop permanently deleted"
     });
-
   } catch (err) {
     console.error("Delete shop error:", err);
     return res.status(500).json({ error: "Server error" });
   }
-}
+  }
+            
