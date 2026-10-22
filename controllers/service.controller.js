@@ -1,4 +1,5 @@
 import supabase from "../config/supabase.js";
+import { sendPushToUsers } from "../services/pushNotification.service.js";
 
 // =======================
 // 1. ADD SERVICE (APPROVED BARBER)
@@ -115,12 +116,20 @@ if (customersError) {
     message: `🆕 New service by ${barberName} (${barber.shop_name || "Shop"}): '${name.trim()}' — ₹${Number(price)}. Book now!`  
   }));  
 
-  const { error: notificationError } = await supabase  
+  const { data: createdNotifications, error: notificationError } = await supabase
     .from("notifications")  
-    .insert(notifications);  
+    .insert(notifications)
+    .select("user_id");
 
   if (notificationError) {  
     console.error("Service notification error:", notificationError);  
+  } else {
+    void sendPushToUsers({
+      userIds: [...new Set((createdNotifications || []).map((row) => row.user_id))],
+      title: "New service available",
+      body: `A new service was added by ${barberName} at ${barber.shop_name || "Shop"}: ${name.trim()}.`,
+      data: { type: "new_service" },
+    });
   }  
 }  
 

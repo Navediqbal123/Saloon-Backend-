@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import supabase from "../config/supabase.js";
+import { sendPushToUser } from "../services/pushNotification.service.js";
 
 // =======================
 // HELPERS
@@ -306,10 +307,19 @@ export async function createBooking(req, res) {
         .insert({
           user_id: barber.user_id,
           message: `New booking received! ${services.length} service(s) booked for ${date} at ${time_slot}.`
-        });
+        })
+        .select("id")
+        .single();
 
       if (notificationError) {
-        console.error("Booking notification error:", notificationError);
+        console.error("Booking notification error:", notificationError.code || "unknown");
+      } else {
+        void sendPushToUser({
+          userId: barber.user_id,
+          title: "New booking",
+          body: `A new booking was requested for ${date} at ${time_slot}.`,
+          data: { type: "booking_created", date, time_slot },
+        });
       }
     }
 
@@ -679,10 +689,21 @@ export async function updateBookingStatus(req, res) {
       .insert({
         user_id: booking.customer_id,
         message
-      });
+      })
+      .select("id")
+      .single();
 
     if (notificationError) {
-      console.error("Notification error:", notificationError);
+      console.error("Notification error:", notificationError.code || "unknown");
+    } else {
+      void sendPushToUser({
+        userId: booking.customer_id,
+        title: status === "approved" ? "Booking confirmed" : "Booking declined",
+        body: status === "approved"
+          ? "Your booking is confirmed."
+          : "Your booking has been declined. Please try booking another slot.",
+        data: { type: "booking_status", status },
+      });
     }
 
     return res.json({
@@ -779,10 +800,19 @@ export async function verifyOtp(req, res) {
       .insert({
         user_id: booking.customer_id,
         message: "Your service has been completed successfully! ✅ Thank you for choosing us."
-      });
+      })
+      .select("id")
+      .single();
 
     if (notificationError) {
-      console.error("Completion notification error:", notificationError);
+      console.error("Completion notification error:", notificationError.code || "unknown");
+    } else {
+      void sendPushToUser({
+        userId: booking.customer_id,
+        title: "Service completed",
+        body: "Your service has been completed successfully. Thank you for choosing us.",
+        data: { type: "service_completed" },
+      });
     }
 
     return res.json({

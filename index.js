@@ -10,6 +10,7 @@ import adminRoutes from "./routes/admin.routes.js";
 import reviewRoutes from "./routes/review.routes.js";
 import clientRoutes from "./routes/client.routes.js";
 import likedShopRoutes from "./routes/likedShopRoutes.js";
+import deviceTokenRoutes from "./routes/deviceToken.routes.js";
 
 dotenv.config();
 
@@ -58,6 +59,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/clients", clientRoutes);
 app.use("/api/liked-shops", likedShopRoutes);
+app.use("/api/device-tokens", deviceTokenRoutes);
 
 // =========================
 // HEALTH CHECK
