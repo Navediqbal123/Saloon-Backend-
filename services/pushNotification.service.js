@@ -103,3 +103,58 @@ export async function sendPushToUsers({ userIds, title, body, data = {} }) {
 export function sendPushToUser(options) {
   return sendPushToUsers({ ...options, userIds: [options.userId] });
 }
+
+/** Send a fixed test notification to one user's active Android devices only. */
+export async function sendAndroidTestPushToUser(userId) {
+  const { data: tokenRecords, error: tokenQueryError } = await supabase
+    .from(TOKEN_TABLE)
+    .select("id, fcm_token")
+    .eq("user_id", userId)
+    .eq("status", ACTIVE_STATUS)
+    .eq("platform", "android");
+
+  if (tokenQueryError) {
+    throw new Error("Failed to look up active Android FCM tokens");
+  }
+
+  if (!tokenRecords?.length) {
+    return { successCount: 0, failureCount: 0 };
+  }
+
+  const messaging = getFirebaseMessaging();
+  let successCount = 0;
+  let failureCount = 0;
+
+  for (const tokenBatch of chunk(tokenRecords, MAX_TOKENS_PER_SEND)) {
+    let batchResponse;
+
+    try {
+      batchResponse = await messaging.sendEachForMulticast({
+        tokens: tokenBatch.map((record) => record.fcm_token),
+        notification: {
+          title: "FCM test notification",
+          body: "Your device is connected to notifications.",
+        },
+      });
+    } catch {
+      throw new Error("FCM test notification delivery failed");
+    }
+
+    successCount += batchResponse.successCount;
+    failureCount += batchResponse.failureCount;
+
+    const invalidTokenRevocations = [];
+    batchResponse.responses.forEach((response, index) => {
+      const code = response.error?.code;
+      if (code && INVALID_TOKEN_ERROR_CODES.has(code)) {
+        invalidTokenRevocations.push(
+          revokeInvalidToken(userId, tokenBatch[index].id)
+        );
+      }
+    });
+
+    await Promise.all(invalidTokenRevocations);
+  }
+
+  return { successCount, failureCount };
+}

@@ -1,4 +1,5 @@
 import supabase from "../config/supabase.js";
+import { sendAndroidTestPushToUser } from "../services/pushNotification.service.js";
 
 const TOKEN_TABLE = "fcm_device_tokens";
 const ACTIVE_STATUS = "active";
@@ -175,5 +176,46 @@ export async function revokeDeviceToken(req, res) {
     return res.json({ success: true, message: "Device token revoked" });
   } catch {
     return serverError(res);
+  }
+}
+
+export async function sendTestNotification(req, res) {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ success: false, error: "Unauthorized" });
+  }
+
+  try {
+    const { successCount, failureCount } =
+      await sendAndroidTestPushToUser(userId);
+
+    if (successCount === 0 && failureCount === 0) {
+      return res.status(409).json({
+        success: false,
+        error: "No active Android device token is registered",
+      });
+    }
+
+    if (successCount === 0) {
+      return res.status(502).json({
+        success: false,
+        error: "Failed to deliver test notification",
+        successCount,
+        failureCount,
+      });
+    }
+
+    return res.json({
+      success: true,
+      successCount,
+      failureCount,
+    });
+  } catch {
+    console.error("Failed to send FCM test notification");
+    return res.status(500).json({
+      success: false,
+      error: "Failed to send test notification",
+    });
   }
 }
