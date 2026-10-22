@@ -306,6 +306,7 @@ export async function createBooking(req, res) {
         .from("notifications")
         .insert({
           user_id: barber.user_id,
+          customer_id: req.user.id,
           message: `New booking received! ${services.length} service(s) booked for ${date} at ${time_slot}.`
         })
         .select("id")
@@ -845,7 +846,41 @@ export async function getNotifications(req, res) {
       return res.status(500).json({ error: "Failed to fetch notifications" });
     }
 
-    return res.json(data);
+    const customerIds = [
+      ...new Set(
+        data.map((notification) => notification.customer_id).filter(Boolean)
+      ),
+    ];
+    let customersById = new Map();
+
+    if (customerIds.length > 0) {
+      const { data: customers, error: customerError } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url")
+        .in("id", customerIds);
+
+      if (customerError) {
+        console.error("Get notification customer profiles error:", customerError);
+        return res.status(500).json({
+          error: "Failed to fetch notification customer profiles",
+        });
+      }
+
+      customersById = new Map(
+        customers.map((customer) => [customer.id, customer])
+      );
+    }
+
+    return res.json(
+      data.map((notification) => {
+        const customer = customersById.get(notification.customer_id);
+        return {
+          ...notification,
+          customer_full_name: customer?.full_name ?? null,
+          customer_avatar_url: customer?.avatar_url ?? null,
+        };
+      })
+    );
   } catch (err) {
     console.error("Get notifications error:", err);
     return res.status(500).json({ error: "Server error" });
