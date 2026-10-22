@@ -24,27 +24,39 @@ const allowedOrigins = [
   "https://www.trimlyhub.com",
   "https://trimlyhub.com",
   "https://id-preview--27262027-4cab-47a6-a934-e97feae3b270.lovable.app",
+  // Capacitor defaults: https://localhost on Android and capacitor://localhost on iOS.
+  "https://localhost",
+  "capacitor://localhost",
+  // Keep this exact local origin for Android builds configured with androidScheme: "http".
+  "http://localhost",
 ];
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests without an Origin header
+      // Requests without an Origin header (for example native clients) do not need CORS headers.
       if (!origin) {
-        return callback(null, true);
+        return callback(null, false);
       }
 
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      return callback(new Error("Not allowed by CORS"));
+      // Do not turn a disallowed browser origin into an Express 500.
+      // The browser still blocks access because no Access-Control-Allow-Origin is emitted.
+      return callback(null, false);
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+// Handle OPTIONS before JSON parsing, authentication, and route middleware.
+// Allowed origins are answered by the CORS middleware above; this fallback
+// keeps other preflight requests from falling through to protected routes.
+app.options("*", (_req, res) => res.sendStatus(204));
 
 app.use(express.json());
 
