@@ -4,7 +4,7 @@ export async function getAllUsers(req, res) {
   try {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, email, role, created_at");
+      .select("id, email, name, role, created_at");
 
     if (error) {
       console.error("Get users error:", error);

@@ -3,7 +3,7 @@ import { supabaseAdmin } from "../config/supabase.js";
 
 // 🔥 SIGNUP
 export const signup = async (req, res) => {
-  const { email, password, name, phone, role } = req.body;
+  const { email, password, name, phone } = req.body;
 
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
     email,
@@ -13,16 +13,13 @@ export const signup = async (req, res) => {
 
   if (error) return res.status(400).json(error);
 
-  const allowedRoles = ["user", "barber", "admin"];
-  const finalRole = allowedRoles.includes(role) ? role : "user";
-
   const { error: profileError } = await supabaseAdmin
     .from("profiles")
     .insert({
       id: data.user.id,
       name: name,
       phone: phone || "",
-      role: finalRole
+      role: "user"
     });
 
   if (profileError) {

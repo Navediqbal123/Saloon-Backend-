@@ -1,25 +1,27 @@
-import supabase from "../config/supabase.js";
+export function createAdminMiddleware(
+  configuredAdminEmails = process.env.ADMIN_EMAILS ?? ""
+) {
+  const adminEmails = new Set(
+    String(configuredAdminEmails)
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean)
+  );
 
-const ADMIN_EMAIL = "dibazhar0.9@gmail.com";
-
-export async function adminMiddleware(req, res, next) {
-  try {
-    if (!req.user?.id) {
+  return async function adminMiddleware(req, res, next) {
+    if (typeof req.user?.id !== "string" || !req.user.id) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("email")
-      .eq("id", req.user.id)
-      .maybeSingle();
-
-    if (error || data?.email?.toLowerCase() !== ADMIN_EMAIL) {
-      return res.status(403).json({ error: "Admin access required" });
+    const authenticatedEmail = typeof req.user.email === "string"
+      ? req.user.email.trim().toLowerCase()
+      : "";
+    if (authenticatedEmail && adminEmails.has(authenticatedEmail)) {
+      return next();
     }
 
-    next();
-  } catch {
-    return res.status(500).json({ error: "Server error" });
-  }
+    return res.status(403).json({ error: "Admin access required" });
+  };
 }
+
+export const adminMiddleware = createAdminMiddleware();
