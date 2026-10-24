@@ -29,6 +29,7 @@ const allowedOrigins = [
   "capacitor://localhost",
   // Keep this exact local origin for Android builds configured with androidScheme: "http".
   "http://localhost",
+  "http://localhost:8080",
 ];
 
 app.use(
