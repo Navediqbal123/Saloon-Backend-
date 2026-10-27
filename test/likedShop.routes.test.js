@@ -8,9 +8,9 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = "test-only-placeholder";
 const state = {
   barberStatus: 200,
   barberData: [{ id: "barber-shop-id" }],
-  rpcStatus: 200,
-  rpcData: 3,
-  rpcRequest: null,
+  likesStatus: 200,
+  likesCount: 3,
+  likesRequestUrl: null,
   barberRequestUrl: null,
 };
 
@@ -33,18 +33,19 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  if (req.url === "/rest/v1/rpc/trimly_count_unique_shop_likes") {
-    state.rpcRequest = JSON.parse(body);
-    res.writeHead(state.rpcStatus, {
-      "Content-Type": "application/json",
+  if (req.url?.startsWith("/rest/v1/liked_shops?")) {
+    state.likesRequestUrl = req.url;
+    res.writeHead(state.likesStatus, {
+      "Content-Range": `*/${state.likesCount}`,
+      ...(state.likesStatus >= 400 && {
+        "Content-Type": "application/json",
+      }),
     });
-    res.end(
-      JSON.stringify(
-        state.rpcStatus >= 400
-          ? { code: "TEST_ERROR", message: "Count query failed" }
-          : state.rpcData
-      )
-    );
+    if (state.likesStatus >= 400) {
+      res.end(JSON.stringify({ code: "TEST_ERROR", message: "Count query failed" }));
+    } else {
+      res.end();
+    }
     return;
   }
 
@@ -116,12 +117,12 @@ test("rejects requests without an authenticated user", async () => {
   assert.equal(state.barberRequestUrl, null);
 });
 
-test("counts unique likes for the authenticated barber's own shop", async () => {
+test("counts likes for the authenticated barber's own shop", async () => {
   state.barberStatus = 200;
   state.barberData = [{ id: "barber-shop-id" }];
-  state.rpcStatus = 200;
-  state.rpcData = 3;
-  state.rpcRequest = null;
+  state.likesStatus = 200;
+  state.likesCount = 3;
+  state.likesRequestUrl = null;
   state.barberRequestUrl = null;
 
   const res = await invoke(
@@ -135,14 +136,15 @@ test("counts unique likes for the authenticated barber's own shop", async () => 
     state.barberRequestUrl,
     /user_id=eq\.authenticated-barber-user/
   );
-  assert.deepEqual(state.rpcRequest, { target_shop_id: "barber-shop-id" });
+  assert.match(state.likesRequestUrl, /select=customer_id/);
+  assert.match(state.likesRequestUrl, /shop_id=eq\.barber-shop-id/);
 });
 
 test("returns zero when the shop has no likes", async () => {
   state.barberStatus = 200;
   state.barberData = [{ id: "barber-shop-id" }];
-  state.rpcStatus = 200;
-  state.rpcData = 0;
+  state.likesStatus = 200;
+  state.likesCount = 0;
 
   const res = await invoke({ id: "authenticated-barber-user" });
 
@@ -175,10 +177,10 @@ test("returns an error when the barber lookup fails", async () => {
   });
 });
 
-test("returns an error when the unique-count query fails", async () => {
+test("returns an error when the exact-count query fails", async () => {
   state.barberStatus = 200;
   state.barberData = [{ id: "barber-shop-id" }];
-  state.rpcStatus = 500;
+  state.likesStatus = 500;
 
   const res = await invoke({ id: "authenticated-barber-user" });
 

@@ -163,22 +163,15 @@ export const getMyShopLikeCount = async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase.rpc(
-      "trimly_count_unique_shop_likes",
-      { target_shop_id: barber.id }
-    );
+    const { count, error } = await supabase
+      .from("liked_shops")
+      .select("customer_id", { count: "exact", head: true })
+      .eq("shop_id", barber.id);
 
     if (error) throw error;
 
-    const count =
-      typeof data === "number"
-        ? data
-        : typeof data === "string" && /^\d+$/.test(data)
-          ? Number(data)
-          : NaN;
-
     if (!Number.isSafeInteger(count) || count < 0) {
-      throw new Error("Invalid unique shop like count returned by database");
+      throw new Error("Invalid shop like count returned by database");
     }
 
     return res.json({
