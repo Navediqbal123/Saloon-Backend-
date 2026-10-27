@@ -136,3 +136,61 @@ export const getLikedShops = async (req, res) => {
     });
   }
 };
+
+export const getMyShopLikeCount = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+    }
+
+    const { data: barber, error: barberError } = await supabase
+      .from("barbers")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (barberError) throw barberError;
+
+    if (!barber) {
+      return res.status(404).json({
+        success: false,
+        message: "Barber profile not found",
+      });
+    }
+
+    const { data, error } = await supabase.rpc(
+      "trimly_count_unique_shop_likes",
+      { target_shop_id: barber.id }
+    );
+
+    if (error) throw error;
+
+    const count =
+      typeof data === "number"
+        ? data
+        : typeof data === "string" && /^\d+$/.test(data)
+          ? Number(data)
+          : NaN;
+
+    if (!Number.isSafeInteger(count) || count < 0) {
+      throw new Error("Invalid unique shop like count returned by database");
+    }
+
+    return res.json({
+      success: true,
+      data: { count },
+    });
+  } catch (error) {
+    console.error("Get shop likes count error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch shop likes count",
+    });
+  }
+};
